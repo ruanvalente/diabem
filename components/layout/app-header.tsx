@@ -13,21 +13,14 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth/use-auth";
+import { getInitials } from "@/lib/utils";
 import { Bell, LogOut, Menu, Wifi } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
-
 export function AppHeader() {
   const { user, logout } = useAuth();
+  const userName = user?.name ? getInitials(user.name) : "??";
 
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background/80 px-5 backdrop-blur-md sm:px-8 lg:px-5">
@@ -72,7 +65,7 @@ export function AppHeader() {
           >
             <Avatar className="size-8">
               <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                {user?.name ? getInitials(user.name) : "??"}
+                {userName}
               </AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
@@ -86,7 +79,7 @@ export function AppHeader() {
                 <div className="flex items-center gap-2.5">
                   <Avatar className="size-9 shrink-0">
                     <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-                      {user?.name ? getInitials(user.name) : "??"}
+                      {userName}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex min-w-0 flex-col gap-0.5">
