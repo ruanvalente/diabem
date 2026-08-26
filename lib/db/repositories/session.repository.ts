@@ -32,8 +32,10 @@ async function getCurrent(): Promise<LocalSession | undefined> {
 }
 
 async function deleteById(id: string): Promise<boolean> {
-  const deleted = await getTable().delete(id);
-  return deleted === undefined;
+  const existing = await getTable().get(id);
+  if (!existing) return false;
+  await getTable().delete(id);
+  return true;
 }
 
 async function deleteAll(): Promise<void> {
