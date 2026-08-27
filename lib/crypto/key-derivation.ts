@@ -26,7 +26,7 @@ function generateSalt(): string {
 
 async function deriveKey(
   password: string,
-  salt: string
+  salt: string,
 ): Promise<CryptoOperationResult<string>> {
   try {
     const encoder = new TextEncoder();
@@ -38,7 +38,7 @@ async function deriveKey(
       passwordBuffer,
       "PBKDF2",
       false,
-      ["deriveBits"]
+      ["deriveBits"],
     );
 
     const derivedBits = await crypto.subtle.deriveBits(
@@ -49,7 +49,7 @@ async function deriveKey(
         hash: "SHA-512",
       },
       keyMaterial,
-      HASH_LENGTH * 8
+      HASH_LENGTH * 8,
     );
 
     const hash = arrayBufferToHex(derivedBits);
@@ -60,7 +60,7 @@ async function deriveKey(
 }
 
 export async function hashPassword(
-  password: string
+  password: string,
 ): Promise<CryptoOperationResult<PasswordDerivation>> {
   const salt = generateSalt();
   const result = await deriveKey(password, salt);
@@ -78,7 +78,7 @@ export async function hashPassword(
 export async function verifyPassword(
   password: string,
   storedHash: string,
-  storedSalt: string
+  storedSalt: string,
 ): Promise<CryptoOperationResult<boolean>> {
   const result = await deriveKey(password, storedSalt);
 
@@ -87,4 +87,89 @@ export async function verifyPassword(
   }
 
   return { ok: true, data: result.data === storedHash };
+}
+
+export async function deriveEncryptionKey(
+  password: string,
+): Promise<CryptoOperationResult<ArrayBuffer>> {
+  const result = await deriveKey(password, "");
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+
+  const hashBuffer = hexToArrayBuffer(result.data);
+  const keyBytes = new Uint8Array(hashBuffer, 0, 32);
+  return { ok: true, data: keyBytes.buffer };
+}
+
+export async function encryptData(
+  key: ArrayBuffer,
+  data: string,
+): Promise<CryptoOperationResult<string>> {
+  try {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw",
+      key,
+      "AES-GCM",
+      false,
+      ["encrypt", "decrypt"],
+    );
+
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(data);
+    const encryptedBuffer = await crypto.subtle.encrypt(
+      {
+        name: "AES-GCM",
+        iv: iv,
+      },
+      cryptoKey,
+      dataBuffer,
+    );
+
+    const ivHex = arrayBufferToHex(iv.buffer);
+    const ciphertextHex = arrayBufferToHex(encryptedBuffer);
+
+    return { ok: true, data: ivHex + ciphertextHex };
+  } catch (error) {
+    return { ok: false, error: "Erro ao criptografar dados" };
+  }
+}
+
+export async function decryptData(
+  key: ArrayBuffer,
+  encryptedData: string,
+): Promise<CryptoOperationResult<string>> {
+  try {
+    const ivHex = encryptedData.substring(0, 24);
+    const ciphertextHex = encryptedData.substring(24);
+
+    const iv = hexToArrayBuffer(ivHex);
+    const ciphertext = hexToArrayBuffer(ciphertextHex);
+
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw",
+      key,
+      "AES-GCM",
+      false,
+      ["decrypt"],
+    );
+
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: iv,
+      },
+      cryptoKey,
+      ciphertext,
+    );
+
+    const decoder = new TextDecoder();
+    const data = decoder.decode(decryptedBuffer);
+
+    return { ok: true, data };
+  } catch (error) {
+    return { ok: false, error: "Erro ao descriptografar dados" };
+  }
 }
