@@ -10,6 +10,7 @@ Cria automaticamente um Pull Request completo e padronizado, com:
 
 ### IMPORTANTE:
 
+> Antes do PR ser aberto é necessárion executar o comando /review e caso a review encontre itens a serem ajustados, o PR só deverá ser aberto após as correções mencionadas no review.
 > O conteúdo do PR (título + descrição) deve ser sempre em inglês.
 > A branch de origem será criada automaticamente a partir da `develop`.
 > O PR sempre terá como destino a branch `develop`.

@@ -8,17 +8,26 @@ import type {
   RegisterCredentials,
 } from "./auth.types";
 
-type AuthServiceResult<T> = { ok: true; data: T } | { ok: false; error: string };
+type AuthServiceResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
 
 function toAuthUser(
-  user: { id: string; email: string; name: string; createdAt: string } | undefined
+  user:
+    | { id: string; email: string; name: string; createdAt: string }
+    | undefined,
 ): AuthUser | null {
   if (!user) return null;
-  return { id: user.id, email: user.email, name: user.name, createdAt: user.createdAt };
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    createdAt: user.createdAt,
+  };
 }
 
 export async function register(
-  credentials: RegisterCredentials
+  credentials: RegisterCredentials,
 ): Promise<AuthServiceResult<AuthUser>> {
   const validation = createUserSchema.safeParse(credentials);
   if (!validation.success) {
@@ -51,7 +60,7 @@ export async function register(
 }
 
 export async function login(
-  credentials: LoginCredentials
+  credentials: LoginCredentials,
 ): Promise<AuthServiceResult<AuthUser>> {
   const validation = loginUserSchema.safeParse(credentials);
   if (!validation.success) {
@@ -69,7 +78,7 @@ export async function login(
   const verification = await verifyPassword(
     password,
     user.passwordHash,
-    user.passwordSalt
+    user.passwordSalt,
   );
   if (!verification.ok) {
     return { ok: false, error: verification.error };
@@ -77,6 +86,11 @@ export async function login(
 
   if (!verification.data) {
     return { ok: false, error: "E-mail ou senha incorretos" };
+  }
+
+  const currentSession = await sessionRepository.getCurrent();
+  if (currentSession) {
+    await sessionRepository.deleteById(currentSession.id);
   }
 
   await sessionRepository.create({ userId: user.id });
