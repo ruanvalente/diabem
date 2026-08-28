@@ -54,6 +54,9 @@ src/
 
 ## 5. Component Guidelines
 
+### File Naming
+- Component files use kebab-case file names (e.g., `glucose-record-form.tsx`), regardless of the PascalCase component name they export. See "Component File Names" under English Component Naming.
+
 ## 6. Form & Record Handling
 
 ## 7. Testing
@@ -90,19 +93,25 @@ src/
 
 All component files, hooks, utilities, and identifiers MUST use English names, consistent with the project's internationalization and codebase standards:
 
+### Component File Names
+- Component files must use kebab-case (lowercase, hyphen-separated) file names, e.g. `glucose-record-form.tsx` — never PascalCase file names like `GlucoseRecordForm.tsx`
+- The exported component identifier stays PascalCase (e.g. a file `glucose-record-form.tsx` exports `export function GlucoseRecordForm`)
+- Applies to feature components (`components/features/**`), shared components (`components/shared/**`) and UI primitives (`components/ui/**`)
+- Test files follow the same convention: `glucose-record-form.test.ts`
+
 ### Examples
-- ✅ `GlucoseRecordForm.tsx` (not `FormDeRegistroDeGlicemia`)
+- ✅ File `glucose-record-form.tsx` exporting `GlucoseRecordForm` (not `FormDeRegistroDeGlicemia`)
 - ✅ `useAuthStore` (not `useLojaDeAutenticacao`)
-- ✅ `GlucoseRangeBadge.tsx` (not `BadgeDaFaixaDeGlicemia`)
+- ✅ File `glucose-range-badge.tsx` exporting `GlucoseRangeBadge` (not `BadgeDaFaixaDeGlicemia`)
 - ✅ `saveGlucoseReading()` (not `salvarLeituraDeGlicemia()`)
 - ✅ `GlucoseReading` type (not `LeituraDeGlicemia`)
-- ✅ `DashboardHeader` (not `CabecalhoDoDashboard`)
+- ✅ File `dashboard-header.tsx` exporting `DashboardHeader` (not `CabecalhoDoDashboard`)
 
 ### Rationale
 - English is the universal language for code maintenance
 - Easier onboarding for contributors
 - Consistent with React/Next.js ecosystem
-- Aligns with shadcn/ui and library conventions
+- Aligns with shadcn/ui and library conventions (kebab-case file names, e.g. `button.tsx`, `date-time-input.tsx`)
 
 
 ### Data Protection
@@ -216,7 +225,7 @@ All component files, hooks, utilities, and identifiers MUST use English names, c
 
 ### Test Files
 - `__tests__/` directories alongside feature modules
-- Naming convention: `ComponentName.test.ts` or `ComponentName.spec.ts`
+- Naming convention: `component-name.test.ts` or `component-name.spec.ts` (kebab-case, matching the file under test)
 - Use Jest + React Testing Library for unit/integration
 - Use Playwright for E2E tests
 
@@ -249,7 +258,8 @@ All component files, hooks, utilities, and identifiers MUST use English names, c
 
 ### Naming Conventions
 - **All component names, props, and identifiers in English** (per project requirement)
-- Component file names: PascalCase (e.g., `GlucoseRecordForm.tsx`)
+- Component file names: kebab-case, lowercase and hyphen-separated (e.g., `glucose-record-form.tsx`; see "Component File Names")
+- Component export identifiers: PascalCase (e.g., `export function GlucoseRecordForm`)
 - Hook names: camelCase with `use` prefix (e.g., `useGlucoseStore`)
 - Type/interface names: PascalCase
 - Enum names: UPPER_SNAKE_CASE

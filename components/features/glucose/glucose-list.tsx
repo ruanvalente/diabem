@@ -1,0 +1,93 @@
+"use client";
+
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { groupByLocalDay, formatTime } from "@/lib/date";
+import { GLUCOSE_CONTEXT_LABELS } from "@/lib/health/constants";
+import { getGlucoseRangeInfo } from "@/lib/health/glucose-range";
+import type { GlucoseReading } from "@/lib/db/types";
+import { Pencil, Trash2 } from "lucide-react";
+import type { ReactNode } from "react";
+
+type GlucoseListProps = {
+  records: GlucoseReading[];
+  onEdit: (record: GlucoseReading) => void;
+  onRequestDelete: (record: GlucoseReading) => void;
+  emptyState?: ReactNode;
+};
+
+export function GlucoseList({
+  records,
+  onEdit,
+  onRequestDelete,
+  emptyState,
+}: GlucoseListProps) {
+  if (records.length === 0 && emptyState) {
+    return <>{emptyState}</>;
+  }
+
+  const groups = groupByLocalDay(records, (record) => record.measuredAt);
+
+  return (
+    <div className="space-y-6">
+      {groups.map((group) => (
+        <section key={group.dayKey} aria-label={group.label}>
+          <h2 className="mb-2 px-1 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            {group.label}
+          </h2>
+          <div className="space-y-2.5">
+            {group.items.map((record) => {
+              const range = getGlucoseRangeInfo(record.value);
+              return (
+                <Card key={record.id} className="border-border">
+                  <CardContent className="flex items-center gap-4 p-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg leading-none font-bold tracking-tight text-foreground">
+                          {record.value}
+                          <span className="ml-1 text-sm font-normal text-muted-foreground">
+                            mg/dL
+                          </span>
+                        </p>
+                        <Badge
+                          variant={range.badgeVariant}
+                          className={range.badgeClassName}
+                        >
+                          {range.label}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {formatTime(record.measuredAt)} ·{" "}
+                        {GLUCOSE_CONTEXT_LABELS[record.context]}
+                        {record.notes ? ` · ${record.notes}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Editar registro"
+                        onClick={() => onEdit(record)}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Excluir registro"
+                        onClick={() => onRequestDelete(record)}
+                      >
+                        <Trash2 className="size-3.5 text-destructive" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
