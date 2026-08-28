@@ -31,7 +31,7 @@ export function AppHeader() {
               <Button variant="ghost" size="icon-sm" className="lg:hidden" />
             }
           >
-            <Menu className="size-5" />
+            <Menu className="size-5 hidden" />
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
             <Sidebar />
