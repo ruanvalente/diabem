@@ -1,203 +1,161 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useCallback, useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth/use-auth";
+import { useActivities } from "@/lib/health/hooks/use-activities";
+import { ActivityList } from "@/components/features/activity/activity-list";
+import { ActivityFormDialog } from "@/components/features/activity/activity-form-dialog";
+import { PageHeader } from "@/components/shared/page-header";
+import { PeriodFilter } from "@/components/shared/period-filter";
+import { OptionPills } from "@/components/shared/option-pills";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ListSkeleton } from "@/components/shared/list-skeleton";
+import { ErrorState } from "@/components/shared/error-state";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ArrowLeft, Activity, Check, Loader2 } from "lucide-react";
-import Link from "next/link";
-
-const activityTypes = [
-  "Caminhada",
-  "Corrida",
-  "Bicicleta",
-  "Academia",
-  "Esporte",
-  "Natação",
-  "Outro",
-];
-
-const intensities = ["Leve", "Moderada", "Intensa"];
+import { ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_ORDER } from "@/lib/health/constants";
+import { resolvePeriodRange, type PeriodFilter as PeriodFilterValue } from "@/lib/date";
+import { toast } from "@/components/ui/toast";
+import type { Activity } from "@/lib/db/types";
+import type { SaveActivityInput } from "@/lib/health/types";
+import { Activity as ActivityIcon, Plus } from "lucide-react";
 
 export default function ActivityPage() {
-  const [activityType, setActivityType] = useState("");
-  const [duration, setDuration] = useState("");
-  const [intensity, setIntensity] = useState("");
-  const [distance, setDistance] = useState("");
-  const [note, setNote] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
-  const now = new Date();
-  const timeStr = now.toTimeString().slice(0, 5);
+  const [period, setPeriod] = useState<PeriodFilterValue>("week");
+  const [type, setType] = useState<Activity["type"] | undefined>(undefined);
 
-  const handleSave = async () => {
-    if (!activityType || !duration) return;
-    setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    }, 1000);
+  const baseFilter = useMemo(() => resolvePeriodRange(period), [period]);
+
+  const activities = useActivities(userId, baseFilter);
+  const {
+    records,
+    isLoading,
+    error,
+    reload,
+    applyFilters,
+    create,
+    update,
+    remove,
+  } = activities;
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<Activity | null>(null);
+  const [deletingRecord, setDeletingRecord] = useState<Activity | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handlePeriodChange = (next: PeriodFilterValue) => {
+    setPeriod(next);
+    void applyFilters({ ...resolvePeriodRange(next), type });
   };
+
+  const handleTypeChange = (next: Activity["type"] | undefined) => {
+    setType(next);
+    void applyFilters({ ...baseFilter, type: next });
+  };
+
+  const openCreate = () => {
+    setEditingRecord(null);
+    setIsDialogOpen(true);
+  };
+
+  const openEdit = (record: Activity) => {
+    setEditingRecord(record);
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = useCallback(
+    async (input: SaveActivityInput, record?: Activity) => {
+      return record ? update(record.id, input) : create(input);
+    },
+    [create, update]
+  );
+
+  const handleDelete = async () => {
+    if (!deletingRecord) return;
+    setIsDeleting(true);
+    const result = await remove(deletingRecord.id);
+    setIsDeleting(false);
+    if (result.ok) {
+      toast.add({ title: "Atividade excluída.", type: "success" });
+      setDeletingRecord(null);
+    } else {
+      toast.add({ title: result.error, type: "error" });
+    }
+  };
+
+  const emptyState = (
+    <EmptyState
+      icon={ActivityIcon}
+      title="Ainda não há atividades neste período"
+      description="Registre sua primeira atividade física para acompanhar sua rotina."
+      action={
+        <Button onClick={openCreate}>
+          <Plus className="size-4" />
+          Registrar primeira atividade
+        </Button>
+      }
+    />
+  );
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8">
-      <div className="mb-6 flex items-center gap-3">
-        <Link href="/dashboard">
-          <Button variant="ghost" size="icon-sm">
-            <ArrowLeft className="size-4" />
+      <PageHeader
+        title="Atividade física"
+        description="Seus registros de atividade"
+        action={
+          <Button onClick={openCreate}>
+            <Plus className="size-4" />
+            Registrar
           </Button>
-        </Link>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">
-            Registrar atividade
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Registre sua atividade física
-          </p>
-        </div>
+        }
+      />
+
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <OptionPills
+          options={ACTIVITY_TYPE_ORDER.map((value) => ({
+            value,
+            label: ACTIVITY_TYPE_LABELS[value],
+          }))}
+          value={type ?? null}
+          onChange={handleTypeChange}
+        />
+        <PeriodFilter value={period} onChange={handlePeriodChange} />
       </div>
 
-      <div className="space-y-4">
-        {/* Activity Type */}
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-5">
-            <label className="mb-3 block text-sm font-medium text-foreground">
-              Tipo de atividade
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {activityTypes.map((type) => (
-                <Button
-                  key={type}
-                  variant={activityType === type ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setActivityType(type)}
-                  className={
-                    activityType === type
-                      ? "bg-primary text-primary-foreground"
-                      : ""
-                  }
-                >
-                  {type}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {isLoading ? (
+        <ListSkeleton rows={4} />
+      ) : error ? (
+        <ErrorState message={error} onRetry={() => void reload()} />
+      ) : (
+        <ActivityList
+          records={records}
+          onEdit={openEdit}
+          onRequestDelete={setDeletingRecord}
+          emptyState={emptyState}
+        />
+      )}
 
-        {/* Duration & Time */}
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-5">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Duração (min)
-                </label>
-                <Input
-                  type="number"
-                  placeholder="30"
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  className="h-12 bg-muted/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Horário
-                </label>
-                <Input
-                  type="time"
-                  defaultValue={timeStr}
-                  className="h-12 bg-muted/50"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <ActivityFormDialog
+        key={`${isDialogOpen ? "open" : "closed"}-${editingRecord?.id ?? "new"}`}
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        record={editingRecord}
+        onSubmit={handleSubmit}
+      />
 
-        {/* Intensity */}
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-5">
-            <label className="mb-3 block text-sm font-medium text-foreground">
-              Intensidade
-            </label>
-            <div className="flex gap-2">
-              {intensities.map((int) => (
-                <Button
-                  key={int}
-                  variant={intensity === int ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setIntensity(int)}
-                  className={
-                    intensity === int
-                      ? "bg-primary text-primary-foreground"
-                      : ""
-                  }
-                >
-                  {int}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Distance */}
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-5">
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Distância (opcional)
-            </label>
-            <div className="relative">
-              <Input
-                type="number"
-                placeholder="0"
-                value={distance}
-                onChange={(e) => setDistance(e.target.value)}
-                className="h-12 bg-muted/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                km
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Note */}
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-5">
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Observação (opcional)
-            </label>
-            <Input
-              placeholder="Ex: No parque com amigos"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="h-12 bg-muted/50"
-            />
-          </CardContent>
-        </Card>
-
-        <Button
-          onClick={handleSave}
-          disabled={!activityType || !duration || isSaving}
-          className="h-12 w-full text-base"
-        >
-          {isSaving ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : saved ? (
-            <>
-              <Check className="size-4" />
-              Salvo com sucesso
-            </>
-          ) : (
-            <>
-              <Activity className="size-4" />
-              Salvar atividade
-            </>
-          )}
-        </Button>
-      </div>
+      <ConfirmDeleteDialog
+        open={!!deletingRecord}
+        onOpenChange={(open) => {
+          if (!open) setDeletingRecord(null);
+        }}
+        title="Excluir atividade?"
+        description="Esta ação não pode ser desfeita. Sua atividade será removida deste dispositivo."
+        isPending={isDeleting}
+        onConfirm={() => void handleDelete()}
+      />
     </div>
   );
 }

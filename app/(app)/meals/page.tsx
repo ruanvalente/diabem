@@ -1,171 +1,161 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useCallback, useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth/use-auth";
+import { useMeals } from "@/lib/health/hooks/use-meals";
+import { MealList } from "@/components/features/meals/meal-list";
+import { MealFormDialog } from "@/components/features/meals/meal-form-dialog";
+import { PageHeader } from "@/components/shared/page-header";
+import { PeriodFilter } from "@/components/shared/period-filter";
+import { OptionPills } from "@/components/shared/option-pills";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ListSkeleton } from "@/components/shared/list-skeleton";
+import { ErrorState } from "@/components/shared/error-state";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ArrowLeft, Apple, Check, Loader2 } from "lucide-react";
-import Link from "next/link";
-
-const mealTypes = [
-  "Café da manhã",
-  "Almoço",
-  "Jantar",
-  "Lanche",
-  "Outra",
-];
+import { MEAL_TYPE_LABELS, MEAL_TYPE_ORDER } from "@/lib/health/constants";
+import { resolvePeriodRange, type PeriodFilter as PeriodFilterValue } from "@/lib/date";
+import { toast } from "@/components/ui/toast";
+import type { Meal } from "@/lib/db/types";
+import type { SaveMealInput } from "@/lib/health/types";
+import { Apple, Plus } from "lucide-react";
 
 export default function MealsPage() {
-  const [mealType, setMealType] = useState("");
-  const [description, setDescription] = useState("");
-  const [carbs, setCarbs] = useState("");
-  const [note, setNote] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
-  const now = new Date();
-  const timeStr = now.toTimeString().slice(0, 5);
+  const [period, setPeriod] = useState<PeriodFilterValue>("week");
+  const [type, setType] = useState<Meal["type"] | undefined>(undefined);
 
-  const handleSave = async () => {
-    if (!mealType) return;
-    setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    }, 1000);
+  const baseFilter = useMemo(() => resolvePeriodRange(period), [period]);
+
+  const meals = useMeals(userId, baseFilter);
+  const {
+    records,
+    isLoading,
+    error,
+    reload,
+    applyFilters,
+    create,
+    update,
+    remove,
+  } = meals;
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<Meal | null>(null);
+  const [deletingRecord, setDeletingRecord] = useState<Meal | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handlePeriodChange = (next: PeriodFilterValue) => {
+    setPeriod(next);
+    void applyFilters({ ...resolvePeriodRange(next), type });
   };
+
+  const handleTypeChange = (next: Meal["type"] | undefined) => {
+    setType(next);
+    void applyFilters({ ...baseFilter, type: next });
+  };
+
+  const openCreate = () => {
+    setEditingRecord(null);
+    setIsDialogOpen(true);
+  };
+
+  const openEdit = (record: Meal) => {
+    setEditingRecord(record);
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = useCallback(
+    async (input: SaveMealInput, record?: Meal) => {
+      return record ? update(record.id, input) : create(input);
+    },
+    [create, update]
+  );
+
+  const handleDelete = async () => {
+    if (!deletingRecord) return;
+    setIsDeleting(true);
+    const result = await remove(deletingRecord.id);
+    setIsDeleting(false);
+    if (result.ok) {
+      toast.add({ title: "Refeição excluída.", type: "success" });
+      setDeletingRecord(null);
+    } else {
+      toast.add({ title: result.error, type: "error" });
+    }
+  };
+
+  const emptyState = (
+    <EmptyState
+      icon={Apple}
+      title="Ainda não há refeições neste período"
+      description="Registre sua primeira refeição para acompanhar sua alimentação."
+      action={
+        <Button onClick={openCreate}>
+          <Plus className="size-4" />
+          Registrar primeira refeição
+        </Button>
+      }
+    />
+  );
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8">
-      <div className="mb-6 flex items-center gap-3">
-        <Link href="/dashboard">
-          <Button variant="ghost" size="icon-sm">
-            <ArrowLeft className="size-4" />
+      <PageHeader
+        title="Refeições"
+        description="Seus registros de alimentação"
+        action={
+          <Button onClick={openCreate}>
+            <Plus className="size-4" />
+            Registrar
           </Button>
-        </Link>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">
-            Registrar refeição
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Adicione informações sobre sua refeição
-          </p>
-        </div>
+        }
+      />
+
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <OptionPills
+          options={MEAL_TYPE_ORDER.map((value) => ({
+            value,
+            label: MEAL_TYPE_LABELS[value],
+          }))}
+          value={type ?? null}
+          onChange={handleTypeChange}
+        />
+        <PeriodFilter value={period} onChange={handlePeriodChange} />
       </div>
 
-      <div className="space-y-4">
-        {/* Meal Type */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
-          <CardContent className="p-5">
-            <label className="mb-3 block text-sm font-medium text-foreground">
-              Tipo de refeição
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {mealTypes.map((type) => (
-                <Button
-                  key={type}
-                  variant={mealType === type ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setMealType(type)}
-                  className={
-                    mealType === type
-                      ? "bg-primary text-primary-foreground"
-                      : ""
-                  }
-                >
-                  {type}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {isLoading ? (
+        <ListSkeleton rows={4} />
+      ) : error ? (
+        <ErrorState message={error} onRetry={() => void reload()} />
+      ) : (
+        <MealList
+          records={records}
+          onEdit={openEdit}
+          onRequestDelete={setDeletingRecord}
+          emptyState={emptyState}
+        />
+      )}
 
-        {/* Time */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
-          <CardContent className="p-5">
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Horário
-            </label>
-            <Input
-              type="time"
-              defaultValue={timeStr}
-              className="h-12 w-40 bg-muted/50"
-            />
-          </CardContent>
-        </Card>
+      <MealFormDialog
+        key={`${isDialogOpen ? "open" : "closed"}-${editingRecord?.id ?? "new"}`}
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        record={editingRecord}
+        onSubmit={handleSubmit}
+      />
 
-        {/* Description */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
-          <CardContent className="p-5">
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Descrição
-            </label>
-            <Input
-              placeholder="Ex: Arroz, feijão, peixe e salada"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="h-12 bg-muted/50"
-            />
-          </CardContent>
-        </Card>
-
-        {/* Carbs */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
-          <CardContent className="p-5">
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Carboidratos (opcional)
-            </label>
-            <div className="relative">
-              <Input
-                type="number"
-                placeholder="0"
-                value={carbs}
-                onChange={(e) => setCarbs(e.target.value)}
-                className="h-12 bg-muted/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                g
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Note */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
-          <CardContent className="p-5">
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Observação (opcional)
-            </label>
-            <Input
-              placeholder="Ex: Refeição leve"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="h-12 bg-muted/50"
-            />
-          </CardContent>
-        </Card>
-
-        <Button
-          onClick={handleSave}
-          disabled={!mealType || isSaving}
-          className="h-12 w-full text-base"
-        >
-          {isSaving ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : saved ? (
-            <>
-              <Check className="size-4" />
-              Salvo com sucesso
-            </>
-          ) : (
-            <>
-              <Apple className="size-4" />
-              Salvar refeição
-            </>
-          )}
-        </Button>
-      </div>
+      <ConfirmDeleteDialog
+        open={!!deletingRecord}
+        onOpenChange={(open) => {
+          if (!open) setDeletingRecord(null);
+        }}
+        title="Excluir refeição?"
+        description="Esta ação não pode ser desfeita. Sua refeição será removida deste dispositivo."
+        isPending={isDeleting}
+        onConfirm={() => void handleDelete()}
+      />
     </div>
   );
 }

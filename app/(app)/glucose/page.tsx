@@ -1,197 +1,167 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useCallback, useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth/use-auth";
+import { useGlucose } from "@/lib/health/hooks/use-glucose";
+import { GlucoseList } from "@/components/features/glucose/glucose-list";
+import { GlucoseFormDialog } from "@/components/features/glucose/glucose-form-dialog";
+import { PageHeader } from "@/components/shared/page-header";
+import { PeriodFilter } from "@/components/shared/period-filter";
+import { OptionPills } from "@/components/shared/option-pills";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ListSkeleton } from "@/components/shared/list-skeleton";
+import { ErrorState } from "@/components/shared/error-state";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, Droplets, Loader2 } from "lucide-react";
-import Link from "next/link";
-
-const contexts = [
-  "Jejum",
-  "Antes da refeição",
-  "Após a refeição",
-  "Antes de dormir",
-  "Outro",
-];
+import { GLUCOSE_CONTEXT_LABELS, GLUCOSE_CONTEXT_ORDER } from "@/lib/health/constants";
+import { resolvePeriodRange, type PeriodFilter as PeriodFilterValue } from "@/lib/date";
+import { toast } from "@/components/ui/toast";
+import type { GlucoseReading } from "@/lib/db/types";
+import type { SaveGlucoseInput } from "@/lib/health/types";
+import { Droplets, Plus } from "lucide-react";
 
 export default function GlucosePage() {
-  const [value, setValue] = useState("");
-  const [context, setContext] = useState("");
-  const [note, setNote] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
-  const now = new Date();
-  const dateStr = now.toISOString().split("T")[0];
-  const timeStr = now.toTimeString().slice(0, 5);
+  const [period, setPeriod] = useState<PeriodFilterValue>("week");
+  const [context, setContext] = useState<GlucoseReading["context"] | undefined>(
+    undefined
+  );
 
-  const handleSave = async () => {
-    if (!value) return;
-    setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    }, 1000);
+  const baseFilter = useMemo(() => resolvePeriodRange(period), [period]);
+
+  const glucose = useGlucose(userId, baseFilter);
+  const {
+    records,
+    isLoading,
+    error,
+    reload,
+    applyFilters,
+    create,
+    update,
+    remove,
+  } = glucose;
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<GlucoseReading | null>(
+    null
+  );
+  const [deletingRecord, setDeletingRecord] = useState<GlucoseReading | null>(
+    null
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handlePeriodChange = (next: PeriodFilterValue) => {
+    setPeriod(next);
+    void applyFilters({ ...resolvePeriodRange(next), context });
   };
 
-  const getValueStatus = () => {
-    const num = parseInt(value);
-    if (isNaN(num)) return null;
-    if (num < 70) return { label: "Baixa", variant: "destructive" as const };
-    if (num <= 140) return { label: "No intervalo", variant: "default" as const };
-    if (num <= 180) return { label: "Alta", variant: "secondary" as const };
-    return { label: "Muito alta", variant: "destructive" as const };
+  const handleContextChange = (next: GlucoseReading["context"] | undefined) => {
+    setContext(next);
+    void applyFilters({ ...baseFilter, context: next });
   };
 
-  const status = getValueStatus();
+  const openCreate = () => {
+    setEditingRecord(null);
+    setIsDialogOpen(true);
+  };
+
+  const openEdit = (record: GlucoseReading) => {
+    setEditingRecord(record);
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = useCallback(
+    async (input: SaveGlucoseInput, record?: GlucoseReading) => {
+      return record ? update(record.id, input) : create(input);
+    },
+    [create, update]
+  );
+
+  const handleDelete = async () => {
+    if (!deletingRecord) return;
+    setIsDeleting(true);
+    const result = await remove(deletingRecord.id);
+    setIsDeleting(false);
+    if (result.ok) {
+      toast.add({ title: "Registro excluído.", type: "success" });
+      setDeletingRecord(null);
+    } else {
+      toast.add({ title: result.error, type: "error" });
+    }
+  };
+
+  const emptyState = (
+    <EmptyState
+      icon={Droplets}
+      title="Ainda não há medições neste período"
+      description="Registre sua primeira glicemia para começar a acompanhar."
+      action={
+        <Button onClick={openCreate}>
+          <Plus className="size-4" />
+          Registrar primeira glicemia
+        </Button>
+      }
+    />
+  );
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8">
-      <div className="mb-6 flex items-center gap-3">
-        <Link href="/dashboard">
-          <Button variant="ghost" size="icon-sm">
-            <ArrowLeft className="size-4" />
+      <PageHeader
+        title="Glicemia"
+        description="Seus registros de glicose"
+        action={
+          <Button onClick={openCreate}>
+            <Plus className="size-4" />
+            Registrar
           </Button>
-        </Link>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">
-            Registrar glicemia
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Registre sua medição de glicose
-          </p>
-        </div>
+        }
+      />
+
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <OptionPills
+          options={GLUCOSE_CONTEXT_ORDER.map((value) => ({
+            value,
+            label: GLUCOSE_CONTEXT_LABELS[value],
+          }))}
+          value={context ?? null}
+          onChange={handleContextChange}
+        />
+        <PeriodFilter value={period} onChange={handlePeriodChange} />
       </div>
 
-      <div className="space-y-4">
-        {/* Value */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
-          <CardContent className="p-5">
-            <label className="mb-2 block text-sm font-medium text-foreground">
-              Valor da medição
-            </label>
-            <div className="relative">
-              <Input
-                type="number"
-                placeholder="0"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                className="h-16 bg-muted/50 text-center text-3xl font-bold tracking-tight [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                mg/dL
-              </span>
-            </div>
-            {status && (
-              <div className="mt-3 text-center">
-                <Badge
-                  variant={status.variant}
-                  className={
-                    status.variant === "default"
-                      ? "bg-success/10 text-success border-success/30"
-                      : ""
-                  }
-                >
-                  {status.label}
-                </Badge>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {isLoading ? (
+        <ListSkeleton rows={4} />
+      ) : error ? (
+        <ErrorState message={error} onRetry={() => void reload()} />
+      ) : (
+        <GlucoseList
+          records={records}
+          onEdit={openEdit}
+          onRequestDelete={setDeletingRecord}
+          emptyState={emptyState}
+        />
+      )}
 
-        {/* Date & Time */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
-          <CardContent className="p-5">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Data
-                </label>
-                <Input
-                  type="date"
-                  defaultValue={dateStr}
-                  className="h-12 bg-muted/50"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Horário
-                </label>
-                <Input
-                  type="time"
-                  defaultValue={timeStr}
-                  className="h-12 bg-muted/50"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <GlucoseFormDialog
+        key={`${isDialogOpen ? "open" : "closed"}-${editingRecord?.id ?? "new"}`}
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        record={editingRecord}
+        onSubmit={handleSubmit}
+      />
 
-        {/* Context */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
-          <CardContent className="p-5">
-            <label className="mb-3 block text-sm font-medium text-foreground">
-              Contexto da medição
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {contexts.map((ctx) => (
-                <Button
-                  key={ctx}
-                  variant={context === ctx ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setContext(ctx)}
-                  className={
-                    context === ctx
-                      ? "bg-primary text-primary-foreground"
-                      : ""
-                  }
-                >
-                  {ctx}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Note */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
-          <CardContent className="p-5">
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Observação (opcional)
-            </label>
-            <Input
-              placeholder="Ex: Após almoço leve"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="h-12 bg-muted/50"
-            />
-          </CardContent>
-        </Card>
-
-        {/* Save */}
-        <Button
-          onClick={handleSave}
-          disabled={!value || isSaving}
-          className="h-12 w-full text-base"
-        >
-          {isSaving ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : saved ? (
-            <>
-              <Check className="size-4" />
-              Salvo com sucesso
-            </>
-          ) : (
-            <>
-              <Droplets className="size-4" />
-              Salvar registro
-            </>
-          )}
-        </Button>
-      </div>
+      <ConfirmDeleteDialog
+        open={!!deletingRecord}
+        onOpenChange={(open) => {
+          if (!open) setDeletingRecord(null);
+        }}
+        title="Excluir registro?"
+        description="Esta ação não pode ser desfeita. Seus dados serão removidos deste dispositivo."
+        isPending={isDeleting}
+        onConfirm={() => void handleDelete()}
+      />
     </div>
   );
 }

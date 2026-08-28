@@ -11,6 +11,7 @@ import {
   Home,
   Apple,
   Activity,
+  NotebookPen,
   FileText,
   Settings,
 } from "lucide-react";
@@ -21,6 +22,7 @@ const navItems = [
   { href: "/glucose", label: "Glicemia", icon: Droplets },
   { href: "/meals", label: "Refeições", icon: Apple },
   { href: "/activity", label: "Atividade", icon: Activity },
+  { href: "/notes", label: "Observações", icon: NotebookPen },
   { href: "/medications", label: "Medicamentos", icon: Heart },
   { href: "/statistics", label: "Estatísticas", icon: BarChart3 },
   { href: "/reports", label: "Relatórios", icon: FileText },
