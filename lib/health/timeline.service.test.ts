@@ -16,33 +16,39 @@ beforeEach(async () => {
 
 describe("listTimeline", () => {
   it("consolidates all record types into a single series, newest first", async () => {
-    await createGlucoseReading("user-a", {
+    const glucose = await createGlucoseReading("user-a", {
       value: 128,
       context: "fasting",
       measuredAtLocal: "2026-08-28T08:30",
     });
-    await createMeal("user-a", {
+    const meal = await createMeal("user-a", {
       type: "lunch",
       description: "Arroz, feijão e frango",
       consumedAtLocal: "2026-08-28T12:30",
     });
-    await createActivity("user-a", {
+    const activity = await createActivity("user-a", {
       type: "walking",
       durationMinutes: 30,
       startedAtLocal: "2026-08-28T07:00",
     });
-    await createNote("user-a", { content: "Hoje acordei bem." });
+    const note = await createNote("user-a", { content: "Hoje acordei bem." });
+    if (!glucose.ok || !meal.ok || !activity.ok || !note.ok) {
+      throw new Error("setup failed");
+    }
 
     const result = await listTimeline("user-a");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    expect(result.data.map((e) => e.type)).toEqual([
-      "meal",
-      "note",
-      "glucose",
-      "activity",
-    ]);
+    const expectedOrder = [
+      meal.data.consumedAt,
+      note.data.createdAt,
+      glucose.data.measuredAt,
+      activity.data.startedAt,
+    ].sort((a, b) => b.localeCompare(a));
+
+    expect(result.data.map((e) => e.at)).toEqual(expectedOrder);
+    expect(result.data).toHaveLength(4);
   });
 
   it("filters by event type", async () => {
