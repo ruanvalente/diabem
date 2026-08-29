@@ -2,7 +2,18 @@ import { activityRepository } from "../db/repositories/activity.repository";
 import { glucoseRepository } from "../db/repositories/glucose.repository";
 import { mealRepository } from "../db/repositories/meal.repository";
 import { noteRepository } from "../db/repositories/note.repository";
-import type { TimelineEvent, TimelineFilter, ServiceResult } from "./types";
+import type {
+  Activity,
+  GlucoseReading,
+  Meal,
+  Note,
+} from "../db/types";
+import type {
+  TimelineEvent,
+  TimelineEventType,
+  TimelineFilter,
+  ServiceResult,
+} from "./types";
 
 /**
  * Consolidates glucose, meal, activity and note records into a single chrono
@@ -13,13 +24,13 @@ export async function listTimeline(
   filter: TimelineFilter = {}
 ): Promise<ServiceResult<TimelineEvent[]>> {
   const range = { from: filter.from, to: filter.to };
-  const type = filter.type;
+  const selectedTypes = collectSelectedTypes(filter);
 
   const [glucose, meals, activities, notes] = await Promise.all([
-    fetchGlucose(userId, type, range),
-    fetchMeals(userId, type, range),
-    fetchActivities(userId, type, range),
-    fetchNotes(userId, type, range),
+    fetchRecordType("glucose", userId, selectedTypes, range),
+    fetchRecordType("meal", userId, selectedTypes, range),
+    fetchRecordType("activity", userId, selectedTypes, range),
+    fetchRecordType("note", userId, selectedTypes, range),
   ]);
 
   const events: TimelineEvent[] = [];
@@ -36,38 +47,51 @@ export async function listTimeline(
   return { ok: true, data: events };
 }
 
-async function fetchGlucose(
-  userId: string,
-  type: TimelineFilter["type"],
-  range: { from?: string; to?: string }
-) {
-  if (type && type !== "glucose") return [];
-  return glucoseRepository.findByUser(userId, range);
+function collectSelectedTypes(filter: TimelineFilter): Set<TimelineEventType> {
+  const types = filter.types ?? (filter.type ? [filter.type] : undefined);
+  return types ? new Set(types) : new Set();
 }
 
-async function fetchMeals(
+async function fetchRecordType(
+  type: "glucose",
   userId: string,
-  type: TimelineFilter["type"],
+  selectedTypes: Set<TimelineEventType>,
   range: { from?: string; to?: string }
-) {
-  if (type && type !== "meal") return [];
-  return mealRepository.findByUser(userId, range);
-}
+): Promise<GlucoseReading[]>;
+async function fetchRecordType(
+  type: "meal",
+  userId: string,
+  selectedTypes: Set<TimelineEventType>,
+  range: { from?: string; to?: string }
+): Promise<Meal[]>;
+async function fetchRecordType(
+  type: "activity",
+  userId: string,
+  selectedTypes: Set<TimelineEventType>,
+  range: { from?: string; to?: string }
+): Promise<Activity[]>;
+async function fetchRecordType(
+  type: "note",
+  userId: string,
+  selectedTypes: Set<TimelineEventType>,
+  range: { from?: string; to?: string }
+): Promise<Note[]>;
+async function fetchRecordType(
+  type: TimelineEventType,
+  userId: string,
+  selectedTypes: Set<TimelineEventType>,
+  range: { from?: string; to?: string }
+): Promise<GlucoseReading[] | Meal[] | Activity[] | Note[]> {
+  if (selectedTypes.size > 0 && !selectedTypes.has(type)) return [];
 
-async function fetchActivities(
-  userId: string,
-  type: TimelineFilter["type"],
-  range: { from?: string; to?: string }
-) {
-  if (type && type !== "activity") return [];
-  return activityRepository.findByUser(userId, range);
-}
-
-async function fetchNotes(
-  userId: string,
-  type: TimelineFilter["type"],
-  range: { from?: string; to?: string }
-) {
-  if (type && type !== "note") return [];
-  return noteRepository.findByUser(userId, range);
+  switch (type) {
+    case "glucose":
+      return glucoseRepository.findByUser(userId, range);
+    case "meal":
+      return mealRepository.findByUser(userId, range);
+    case "activity":
+      return activityRepository.findByUser(userId, range);
+    case "note":
+      return noteRepository.findByUser(userId, range);
+  }
 }

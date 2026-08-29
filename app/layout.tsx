@@ -12,9 +12,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://diabem.vercel.app/"),
   title: "DiaBem - Acompanhamento Pessoal de Diabetes",
   description:
     "Diário pessoal inteligente de diabetes. Registre glicemia, refeições, atividades e medicamentos. Acompanhe sua rotina de saúde com um companheiro digital acessível e offline.",
+  authors: [{ name: "Ruan Valente", url: "https://diabem.vercel.app/" }],
   keywords: [
     "diabetes",
     "glicemia",

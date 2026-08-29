@@ -21,8 +21,12 @@ const UNAUTHENTICATED: ServiceResult<Note> = {
   error: "Usuário não autenticado",
 };
 
-export function useNotes(userId: string | null) {
-  const entity = useEntityRecords<Note, NoteFilter>(userId, listNotes);
+export function useNotes(userId: string | null, defaultFilter?: NoteFilter) {
+  const entity = useEntityRecords<Note, NoteFilter>(
+    userId,
+    listNotes,
+    defaultFilter
+  );
   const { reload } = entity;
 
   const create = useCallback(

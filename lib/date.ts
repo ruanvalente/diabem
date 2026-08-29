@@ -2,25 +2,18 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type PeriodFilter = "today" | "week" | "month" | "all";
 
+export type PeriodFilterWithCustom = PeriodFilter | "custom";
+
 function pad2(value: number): string {
   return String(value).padStart(2, "0");
 }
 
-/**
- * Converts a Date into the `yyyy-MM-ddTHH:mm` value expected by an
- * `<input type="datetime-local">`, expressed in the user's local timezone.
- */
 export function toDateTimeLocalValue(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(
     date.getDate(),
   )}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
-/**
- * Parses a `datetime-local` value (interpreted as local wall-clock time) and
- * returns the equivalent instant as an ISO 8601 UTC string, or null when the
- * value is empty or invalid.
- */
 export function fromDateTimeLocalValue(value: string): string | null {
   if (!value) return null;
   const date = new Date(value);
@@ -28,7 +21,6 @@ export function fromDateTimeLocalValue(value: string): string | null {
   return date.toISOString();
 }
 
-/** Local `yyyy-MM-dd` key used to group records by day. */
 export function getLocalDayKey(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(
     date.getDate(),
@@ -49,7 +41,6 @@ export function isSameLocalDay(a: Date, b: Date): boolean {
   return getLocalDayKey(a) === getLocalDayKey(b);
 }
 
-/** Local time, e.g. `08:30`. */
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
@@ -57,7 +48,6 @@ export function formatTime(iso: string): string {
   });
 }
 
-/** Local date, e.g. `28/08/26`. */
 export function formatDateShort(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -66,7 +56,6 @@ export function formatDateShort(iso: string): string {
   });
 }
 
-/** Local short date, e.g. `28 de agosto` (no year). */
 export function formatDateMonthDay(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -74,7 +63,22 @@ export function formatDateMonthDay(iso: string): string {
   });
 }
 
-/** Human friendly day header: `Hoje`, `Ontem` or the local date. */
+export function formatDateLong(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export function formatWeekdayShort(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-BR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
 export function dayLabel(iso: string, now: Date = new Date()): string {
   const date = new Date(iso);
   const today = startOfLocalDay(now);
@@ -89,11 +93,6 @@ export function dayLabel(iso: string, now: Date = new Date()): string {
   });
 }
 
-/**
- * Maps a period shortcut to an inclusive UTC range so records can be queried
- * by their stored timestamps. Boundaries represent the user's local calendar
- * day/month, converted to UTC instants.
- */
 export function resolvePeriodRange(
   period: PeriodFilter,
   now: Date = new Date(),
@@ -117,16 +116,89 @@ export function resolvePeriodRange(
   }
 }
 
+export function resolveCustomPeriodRange(
+  fromLocal: string,
+  toLocal: string,
+): { from: string; to: string } | null {
+  const from = new Date(`${fromLocal}T00:00:00`);
+  const to = new Date(`${toLocal}T00:00:00`);
+  if (
+    !fromLocal ||
+    !toLocal ||
+    Number.isNaN(from.getTime()) ||
+    Number.isNaN(to.getTime())
+  ) {
+    return null;
+  }
+  if (from.getTime() > to.getTime()) return null;
+
+  return {
+    from: startOfLocalDay(from).toISOString(),
+    to: addDays(startOfLocalDay(to), 1).toISOString(),
+  };
+}
+
+export type CustomPeriodRange = {
+  from: string;
+  to: string;
+};
+
+export type PeriodSelection = {
+  period: PeriodFilterWithCustom;
+  custom: CustomPeriodRange | null;
+};
+
+export const PERIOD_LABELS: Record<PeriodFilterWithCustom, string> = {
+  today: "Hoje",
+  week: "Últimos 7 dias",
+  month: "Este mês",
+  all: "Todo o período",
+  custom: "Personalizado",
+};
+
+export function formatPeriodRangeLabel(custom: CustomPeriodRange): string {
+  const fromIso = new Date(`${custom.from}T00:00:00`).toISOString();
+  const toIso = new Date(`${custom.to}T00:00:00`).toISOString();
+  return `de ${formatDateShort(fromIso)} a ${formatDateShort(toIso)}`;
+}
+
+export function periodAdverbial(selection: PeriodSelection): string {
+  if (selection.period === "custom" && selection.custom) {
+    return "no período selecionado";
+  }
+  switch (selection.period) {
+    case "today":
+      return "hoje";
+    case "week":
+      return "na última semana";
+    case "month":
+      return "neste mês";
+    case "all":
+      return "em todo o período";
+    case "custom":
+      return "neste período";
+  }
+}
+
+export function resolvePeriodSelectionRange(
+  selection: PeriodSelection,
+  now: Date = new Date(),
+): { from?: string; to?: string } {
+  if (selection.period === "custom") {
+    if (!selection.custom) return {};
+    return (
+      resolveCustomPeriodRange(selection.custom.from, selection.custom.to) ?? {}
+    );
+  }
+  return resolvePeriodRange(selection.period, now);
+}
+
 export type DayGroup<T> = {
   dayKey: string;
   label: string;
   items: T[];
 };
 
-/**
- * Groups records into local-day buckets, newest day first and newest item
- * first within each day.
- */
 export function groupByLocalDay<T>(
   items: T[],
   getTimestamp: (item: T) => string,

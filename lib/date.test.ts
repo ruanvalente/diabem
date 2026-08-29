@@ -5,11 +5,14 @@ import {
   fromDateTimeLocalValue,
   getLocalDayKey,
   groupByLocalDay,
+  resolveCustomPeriodRange,
   resolvePeriodRange,
+  resolvePeriodSelectionRange,
   startOfLocalDay,
   toDateTimeLocalValue,
   formatTime,
   formatDateShort,
+  formatDateLong,
 } from "./date";
 
 describe("date helpers", () => {
@@ -28,13 +31,13 @@ describe("date helpers", () => {
 
   it("accumulates no wall-clock drift across the round trip", () => {
     const now = new Date();
-    const roundtrip = toDateTimeLocalValue(new Date(fromDateTimeLocalValue(toDateTimeLocalValue(now))!));
+    const roundtrip = toDateTimeLocalValue(
+      new Date(fromDateTimeLocalValue(toDateTimeLocalValue(now))!),
+    );
     expect(roundtrip).toBe(toDateTimeLocalValue(now));
   });
 
   it("displays the stored instant back in the same local wall-clock time", () => {
-    // A reading taken at 23:30 local on the 28th must be displayed as 23:30,
-    // never shifted to the next day (the "28/08 23:30 => 29/08 02:30" bug).
     const local = new Date(2026, 7, 28, 23, 30);
     const stored = local.toISOString();
     const formatted = formatTime(stored);
@@ -55,8 +58,12 @@ describe("date helpers", () => {
 
   it("labels days as Hoje, Ontem or the weekday/date", () => {
     const today = new Date(2026, 7, 28, 12, 0);
-    expect(dayLabel(new Date(2026, 7, 28, 9, 0).toISOString(), today)).toBe("Hoje");
-    expect(dayLabel(new Date(2026, 7, 27, 9, 0).toISOString(), today)).toBe("Ontem");
+    expect(dayLabel(new Date(2026, 7, 28, 9, 0).toISOString(), today)).toBe(
+      "Hoje",
+    );
+    expect(dayLabel(new Date(2026, 7, 27, 9, 0).toISOString(), today)).toBe(
+      "Ontem",
+    );
     const other = dayLabel(new Date(2026, 7, 20, 9, 0).toISOString(), today);
     expect(other).not.toBe("Hoje");
     expect(other).not.toBe("Ontem");
@@ -76,7 +83,9 @@ describe("date helpers", () => {
     it("resolves week to the last 7 local days", () => {
       const { from, to } = resolvePeriodRange("week", now);
       expect(new Date(from!)).toEqual(addDays(startOfLocalDay(now), -6));
-      expect(new Date(to!).getTime()).toBeGreaterThan(new Date(from!).getTime());
+      expect(new Date(to!).getTime()).toBeGreaterThan(
+        new Date(from!).getTime(),
+      );
     });
 
     it("resolves month to the current local month boundaries", () => {
@@ -90,6 +99,88 @@ describe("date helpers", () => {
     });
   });
 
+  describe("resolveCustomPeriodRange", () => {
+    it("resolves an inclusive local date range into UTC instants", () => {
+      const range = resolveCustomPeriodRange("2026-08-01", "2026-08-29");
+      expect(range).not.toBeNull();
+      expect(toDateTimeLocalValue(new Date(range!.from))).toBe(
+        "2026-08-01T00:00",
+      );
+      expect(toDateTimeLocalValue(new Date(range!.to))).toBe(
+        "2026-08-30T00:00",
+      );
+    });
+
+    it("rejects an end date before the start date", () => {
+      expect(resolveCustomPeriodRange("2026-08-29", "2026-08-01")).toBeNull();
+    });
+
+    it("allows a single-day range", () => {
+      const range = resolveCustomPeriodRange("2026-08-28", "2026-08-28");
+      expect(range).not.toBeNull();
+      if (range) {
+        expect(toDateTimeLocalValue(new Date(range.from))).toBe(
+          "2026-08-28T00:00",
+        );
+        expect(toDateTimeLocalValue(new Date(range.to))).toBe(
+          "2026-08-29T00:00",
+        );
+      }
+    });
+
+    it("rejects empty or malformed dates", () => {
+      expect(resolveCustomPeriodRange("", "2026-08-01")).toBeNull();
+      expect(resolveCustomPeriodRange("not-a-date", "2026-08-01")).toBeNull();
+    });
+  });
+
+  describe("resolvePeriodSelectionRange", () => {
+    it("resolves preset periods", () => {
+      const now = new Date(2026, 7, 28, 12);
+      const range = resolvePeriodSelectionRange(
+        { period: "today", custom: null },
+        now,
+      );
+      expect(toDateTimeLocalValue(new Date(range.from!))).toBe(
+        "2026-08-28T00:00",
+      );
+    });
+
+    it("resolves custom ranges and falls back to empty when invalid", () => {
+      expect(
+        resolvePeriodSelectionRange({
+          period: "custom",
+          custom: { from: "2026-08-01", to: "2026-08-29" },
+        }),
+      ).not.toBeNull();
+
+      expect(
+        resolvePeriodSelectionRange({
+          period: "custom",
+          custom: { from: "2026-08-29", to: "2026-08-01" },
+        }),
+      ).toEqual({});
+
+      expect(
+        resolvePeriodSelectionRange({ period: "custom", custom: null }),
+      ).toEqual({});
+    });
+
+    it("resolves all as an unbounded range", () => {
+      expect(
+        resolvePeriodSelectionRange({ period: "all", custom: null }),
+      ).toEqual({});
+    });
+  });
+
+  describe("formatDateLong", () => {
+    it("renders a long local date", () => {
+      const iso = new Date(2026, 7, 28, 8, 0).toISOString();
+      expect(formatDateLong(iso)).toContain("28");
+      expect(formatDateLong(iso)).toContain("agosto");
+    });
+  });
+
   describe("groupByLocalDay", () => {
     const items = [
       { id: "a", ts: new Date(2026, 7, 27, 23, 30).toISOString() },
@@ -98,7 +189,8 @@ describe("date helpers", () => {
     ];
 
     it("groups by local day, days descending and items descending", () => {
-      const groups = groupByLocalDay(items, (item) => item.ts);
+      const now = new Date(2026, 7, 28, 12, 0);
+      const groups = groupByLocalDay(items, (item) => item.ts, now);
       expect(groups).toHaveLength(2);
       expect(groups[0].dayKey).toBe("2026-08-28");
       expect(groups[0].label).toBe("Hoje");
