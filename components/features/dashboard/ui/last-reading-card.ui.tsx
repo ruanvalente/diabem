@@ -12,14 +12,16 @@ type LastReadingCardProps = {
   reading?: GlucoseReading;
   rangeInfo: GlucoseRangeInfo | null;
   count: number;
+  periodLabel: string;
 };
 
 export function LastReadingCard({
   reading,
   rangeInfo,
   count,
+  periodLabel,
 }: LastReadingCardProps) {
-  const countLabel = `${count} registro${count !== 1 ? "s" : ""}`;
+  const countLabel = `${count} registro${count !== 1 ? "s" : ""} ${periodLabel}`;
 
   return (
     <Card className="mb-6 border-border">
@@ -57,7 +59,7 @@ export function LastReadingCard({
                 Última medição
               </p>
               <p className="text-2xl font-bold tracking-tight text-foreground">
-                Sem medições hoje
+                Sem medições {periodLabel}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Registre sua glicemia para começar.
@@ -70,7 +72,7 @@ export function LastReadingCard({
         )}
         <Separator className="my-4" />
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">{countLabel} hoje</span>
+          <span className="text-muted-foreground">{countLabel}</span>
           <Link
             href="/glucose"
             className="flex items-center gap-1 font-medium text-primary transition-colors hover:text-primary/80"

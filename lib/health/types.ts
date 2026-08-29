@@ -1,9 +1,4 @@
-import type {
-  Activity,
-  GlucoseReading,
-  Meal,
-  Note,
-} from "../db/types";
+import type { Activity, GlucoseReading, Meal, Note } from "../db/types";
 import type { ActivityFilter } from "../db/repositories/activity.repository";
 import type { GlucoseReadingFilter } from "../db/repositories/glucose.repository";
 import type { MealFilter } from "../db/repositories/meal.repository";
@@ -56,5 +51,8 @@ export type TimelineEvent =
 export type TimelineFilter = {
   from?: string;
   to?: string;
+
   type?: TimelineEventType;
+
+  types?: TimelineEventType[];
 };

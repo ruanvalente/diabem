@@ -3,12 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import {
-  TrendingUp,
-  Activity,
-  Apple,
-  BarChart3,
-} from "lucide-react";
+import { TrendingUp, Activity, Apple, BarChart3 } from "lucide-react";
 
 export default function StatisticsPage() {
   return (
@@ -39,7 +34,7 @@ export default function StatisticsPage() {
           </div>
 
           {/* Chart Placeholder */}
-          <Card className="border-border shadow-[var(--shadow-card)]">
+          <Card className="border-border shadow-(--shadow-card)]">
             <CardHeader>
               <CardTitle className="text-base">
                 Glicemia ao longo do tempo
@@ -61,7 +56,7 @@ export default function StatisticsPage() {
           </Card>
 
           {/* Distribution */}
-          <Card className="border-border shadow-[var(--shadow-card)]">
+          <Card className="border-border shadow-(--shadow-card)]">
             <CardHeader>
               <CardTitle className="text-base">
                 Distribuição por contexto
@@ -70,15 +65,23 @@ export default function StatisticsPage() {
             <CardContent>
               <div className="space-y-3">
                 <DistributionRow label="Jejum" count={8} total={28} />
-                <DistributionRow label="Antes da refeição" count={6} total={28} />
-                <DistributionRow label="Após a refeição" count={10} total={28} />
+                <DistributionRow
+                  label="Antes da refeição"
+                  count={6}
+                  total={28}
+                />
+                <DistributionRow
+                  label="Após a refeição"
+                  count={10}
+                  total={28}
+                />
                 <DistributionRow label="Antes de dormir" count={4} total={28} />
               </div>
             </CardContent>
           </Card>
 
           {/* In Range Percentage */}
-          <Card className="border-border shadow-[var(--shadow-card)]">
+          <Card className="border-border shadow-(--shadow-card)]">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
@@ -113,7 +116,7 @@ export default function StatisticsPage() {
             <StatCard label="Atividades" value="4" unit="esta semana" />
           </div>
 
-          <Card className="border-border shadow-[var(--shadow-card)]">
+          <Card className="border-border shadow-(--shadow-card)]">
             <CardContent className="p-5">
               <div className="flex h-48 items-center justify-center rounded-xl bg-muted/50">
                 <div className="text-center">
@@ -133,7 +136,7 @@ export default function StatisticsPage() {
             <StatCard label="Carboidratos" value="180g" unit="média/dia" />
           </div>
 
-          <Card className="border-border shadow-[var(--shadow-card)]">
+          <Card className="border-border shadow-(--shadow-card)]">
             <CardContent className="p-5">
               <div className="flex h-48 items-center justify-center rounded-xl bg-muted/50">
                 <div className="text-center">
@@ -161,7 +164,7 @@ function StatCard({
   unit: string;
 }) {
   return (
-    <Card className="border-border shadow-[var(--shadow-card)]">
+    <Card className="border-border shadow-(--shadow-card)]">
       <CardContent className="p-4">
         <p className="text-xs font-medium text-muted-foreground">{label}</p>
         <p className="text-2xl font-bold tracking-tight text-foreground">

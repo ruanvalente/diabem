@@ -7,11 +7,8 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Heart, Check, Loader2 } from "lucide-react";
 import Link from "next/link";
 
-const medicationTypes = [
-  "Insulina",
-  "Metformina",
-  "Outro",
-];
+const medicationTypes = ["Insulina", "Metformina", "Outro"];
+const dosageUnits = ["mg", "UI", "ml"];
 
 export default function MedicationsPage() {
   const [medication, setMedication] = useState("");
@@ -55,7 +52,7 @@ export default function MedicationsPage() {
 
       <div className="space-y-4">
         {/* Medication Name */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
+        <Card className="border-border shadow-(--shadow-card)]">
           <CardContent className="p-5">
             <label className="mb-1.5 block text-sm font-medium text-foreground">
               Medicamento
@@ -70,7 +67,7 @@ export default function MedicationsPage() {
         </Card>
 
         {/* Dose & Unit */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
+        <Card className="border-border shadow-(--shadow-card)]">
           <CardContent className="p-5">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -90,16 +87,14 @@ export default function MedicationsPage() {
                   Unidade
                 </label>
                 <div className="flex gap-2">
-                  {["mg", "UI", "ml"].map((u) => (
+                  {dosageUnits.map((u) => (
                     <Button
                       key={u}
                       variant={unit === u ? "default" : "outline"}
                       size="sm"
                       onClick={() => setUnit(u)}
                       className={
-                        unit === u
-                          ? "bg-primary text-primary-foreground"
-                          : ""
+                        unit === u ? "bg-primary text-primary-foreground" : ""
                       }
                     >
                       {u}
@@ -112,7 +107,7 @@ export default function MedicationsPage() {
         </Card>
 
         {/* Time */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
+        <Card className="border-border shadow-(--shadow-card)]">
           <CardContent className="p-5">
             <label className="mb-1.5 block text-sm font-medium text-foreground">
               Horário
@@ -126,7 +121,7 @@ export default function MedicationsPage() {
         </Card>
 
         {/* Type */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
+        <Card className="border-border shadow-(--shadow-card)]">
           <CardContent className="p-5">
             <label className="mb-3 block text-sm font-medium text-foreground">
               Tipo
@@ -139,9 +134,7 @@ export default function MedicationsPage() {
                   size="sm"
                   onClick={() => setType(t)}
                   className={
-                    type === t
-                      ? "bg-primary text-primary-foreground"
-                      : ""
+                    type === t ? "bg-primary text-primary-foreground" : ""
                   }
                 >
                   {t}
@@ -152,7 +145,7 @@ export default function MedicationsPage() {
         </Card>
 
         {/* Note */}
-        <Card className="border-border shadow-[var(--shadow-card)]">
+        <Card className="border-border shadow-(--shadow-card)]">
           <CardContent className="p-5">
             <label className="mb-1.5 block text-sm font-medium text-foreground">
               Observação (opcional)

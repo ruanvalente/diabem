@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { TimelineEventType } from "@/lib/health/types";
 
 export type QuickAction = {
   icon: LucideIcon;
@@ -17,4 +18,15 @@ export type SummaryCard = {
   last: string;
   color: string;
   bg: string;
+};
+
+export type RecentRecord = {
+  id: string;
+  type: TimelineEventType;
+  href: string;
+  icon: LucideIcon;
+  title: string;
+  detail: string;
+  at: string;
+  time: string;
 };

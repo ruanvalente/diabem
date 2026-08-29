@@ -1,25 +1,25 @@
 "use client";
 
 import { PageHeader } from "@/components/shared/page-header";
-import { PeriodFilter } from "@/components/shared/period-filter";
-import { OptionPills } from "@/components/shared/option-pills";
-import type { PeriodFilter as PeriodFilterValue } from "@/lib/date";
+import { PeriodRangeFilter } from "@/components/shared/period-range-filter";
+import { MultiOptionPills } from "@/components/shared/multi-option-pills";
+import type { PeriodSelection } from "@/lib/date";
 import type { TimelineEventType } from "@/lib/health/types";
 
 type TimelinePageHeaderProps = {
-  periodValue: PeriodFilterValue;
-  onPeriodChange: (value: PeriodFilterValue) => void;
+  selection: PeriodSelection;
+  onSelectionChange: (selection: PeriodSelection) => void;
   typeOptions: { value: TimelineEventType; label: string }[];
-  typeValue: TimelineEventType | null;
-  onTypeChange: (value: TimelineEventType | undefined) => void;
+  selectedTypes: TimelineEventType[];
+  onTypesChange: (types: TimelineEventType[]) => void;
 };
 
 export function TimelinePageHeader({
-  periodValue,
-  onPeriodChange,
+  selection,
+  onSelectionChange,
   typeOptions,
-  typeValue,
-  onTypeChange,
+  selectedTypes,
+  onTypesChange,
 }: TimelinePageHeaderProps) {
   return (
     <>
@@ -29,12 +29,12 @@ export function TimelinePageHeader({
       />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <OptionPills
+        <MultiOptionPills
           options={typeOptions}
-          value={typeValue}
-          onChange={onTypeChange}
+          value={selectedTypes}
+          onChange={onTypesChange}
         />
-        <PeriodFilter value={periodValue} onChange={onPeriodChange} />
+        <PeriodRangeFilter value={selection} onChange={onSelectionChange} />
       </div>
     </>
   );
