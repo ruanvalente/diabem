@@ -98,7 +98,8 @@ describe("date helpers", () => {
     ];
 
     it("groups by local day, days descending and items descending", () => {
-      const groups = groupByLocalDay(items, (item) => item.ts);
+      const now = new Date(2026, 7, 28, 12, 0);
+      const groups = groupByLocalDay(items, (item) => item.ts, now);
       expect(groups).toHaveLength(2);
       expect(groups[0].dayKey).toBe("2026-08-28");
       expect(groups[0].label).toBe("Hoje");
