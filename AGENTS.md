@@ -45,29 +45,61 @@ src/
 - Only opt into Client Components (`'use client'`) when necessary for interactivity, state, or browser APIs
 - Keep data-fetching and business logic in Server Components or Server Actions
 
-### Dashboard Feature: Separation of Responsibilities
-The Dashboard (`app/(app)/dashboard/page.tsx`) is refactored around a Feature-based Widget/UI architecture. The route page is only an entry point; behavior lives in widgets and pure presentation lives in UI components.
+### Page → Widget → UI Architecture (Feature-based)
+Route pages follow a Feature-based Widget/UI architecture. The route page is only an entry point; behavior lives in widgets and pure presentation lives in UI components.
 
 ```text
-Page     app/(app)/dashboard/page.tsx            → thin entry point, composes the widget
-Widget   components/features/dashboard/widget/   → hooks, data-fetching, state, composition
-UI       components/features/dashboard/ui/       → pure presentational components (props-only)
+Page     app/(app)/<route>/page.tsx            → thin entry point, composes the widget
+Widget   components/features/<feature>/widget/ → hooks, data-fetching, state, composition
+UI       components/features/<feature>/ui/     → pure presentational components (props-only)
 ```
 
 Conventions:
 - **`*.widget.tsx`** — owns behavior: hooks, `useEffect`, data fetching, state, error/loading/empty handling, and composition of UI components. Example: `dashboard.widget.tsx`.
-- **`*.ui.tsx`** — purely presentational: no business rules, no feature state, no hooks/effects/API calls; receives everything it renders via props. Examples: `dashboard-header.ui.tsx`, `quick-actions.ui.tsx`, `last-reading-card.ui.tsx`, `summary-card.ui.tsx`, `day-summary-list.ui.tsx`.
-- UI components must not import from `widget/` at runtime; shared feature types live in `components/features/dashboard/types.ts` and pure helpers (e.g. `greeting`) in `components/features/dashboard/utils/`.
-- Feature-specific hooks live in `components/features/dashboard/hooks/` (e.g. `use-today-range.ts`).
-- Pure data derivation (e.g. `buildSummaryCards`, `QUICK_ACTIONS`) lives in `widget/dashboard.data.ts`.
+- **`*.ui.tsx`** — purely presentational: no business rules, no feature state, no hooks/effects/API calls; receives everything it renders via props. Examples: `dashboard-header.ui.tsx`, `glucose-page-header.ui.tsx`, `meal-page-header.ui.tsx`.
+- UI components must not import from `widget/` at runtime; shared feature types live in `components/features/<feature>/types.ts` and pure helpers in `components/features/<feature>/utils/`.
+- Feature-specific hooks live in `components/features/<feature>/hooks/` (e.g. `use-today-range.ts`).
+- Pure data derivation lives in `widget/<feature>.data.ts`.
 
-Dashboard responsibilities map:
-- Entry point → `page.tsx`
-- Auth + health hooks orchestration, today-range filter, focus refresh, loading/error handling → `dashboard.widget.tsx`
-- Greeting header → `dashboard-header.ui.tsx`
-- "Última medição" card (empty/filled states, count, history link) → `last-reading-card.ui.tsx`
-- "Ações rápidas" grid → `quick-actions.ui.tsx`
-- "Resumo do dia" list + item → `day-summary-list.ui.tsx` / `summary-card.ui.tsx`
+#### When to apply the pattern (and when not to)
+The `Page → Widget → UI` split is **only** applied when a page has a real architectural need — multiple independent responsibilities, significant state/CRUD orchestration, filters, loading/error/empty handling, or UI that needs isolated testing or reuse. **Do not** split a page just to reduce line count or for standardization.
+
+Apply when:
+- CRUD list/manager pages (glucose, meals, activity, notes, timeline) — auth + filters + data hooks + dialog/delete state + toasts + list/empty/loading/error composition.
+- The page integrates many independent concerns or mixes business rules with JSX.
+
+Keep simple / single-responsibility pages as-is:
+- Landing (`app/page.tsx`), auth forms (`login`, `signup`), and static/mock pages (`medications`, `reports`, `statistics`, `settings`) remain thin, cohesive pages.
+- A `page.tsx` that is a small composition or a single cohesive form should not be refactored.
+
+#### Feature responsibilities map
+| Page | Widget | UI |
+| --- | --- | --- |
+| `app/(app)/dashboard/page.tsx` | `dashboard.widget.tsx` (auth + 4 health hooks orchestration, today-range, loading/error) | `dashboard-header.ui.tsx`, `last-reading-card.ui.tsx`, `quick-actions.ui.tsx`, `day-summary-list.ui.tsx`, `summary-card.ui.tsx` |
+| `app/(app)/glucose/page.tsx` | `glucose.widget.tsx` (filter state, dialog/delete state, CRUD, toasts) | `glucose-page-header.ui.tsx` (title + context pills + period filter) |
+| `app/(app)/meals/page.tsx` | `meal.widget.tsx` | `meal-page-header.ui.tsx` |
+| `app/(app)/activity/page.tsx` | `activity.widget.tsx` | `activity-page-header.ui.tsx` |
+| `app/(app)/notes/page.tsx` | `notes.widget.tsx` | `notes-page-header.ui.tsx` (title + period filter + note composer) |
+| `app/(app)/timeline/page.tsx` | `timeline.widget.tsx` (type + period filters, timeline hook) | `timeline-page-header.ui.tsx` (title + type pills + period filter) |
+
+The feature list components (`*-list.tsx`) and form dialogs (`*-form-dialog.tsx`) live alongside their feature as cooperative components consumed by the widget; only fully presentational blocks specific to the page shell are extracted behind `*.ui.tsx`.
+
+#### Page Components Audit Log
+Objective: audit every `app/**/page.tsx` and refactor only pages with genuinely excessive responsibility (mixing UI, state, business rules, data access, and behavior). Pages are **not** refactored merely for line count; simplicity is preserved where adequate.
+
+Criteria used to identify complex pages: multiple independent responsibilities, several `useState`/hooks, extensive event handlers, CRUD orchestration, filters, loading/error/empty states, business rules mixed into JSX, limited isolated testability, high coupling.
+
+Páginas analisadas (13 total):
+- Mantidas (KEEP, without change): `app/page.tsx` (landing composition), `app/(app)/dashboard/page.tsx` (already thin entry point), `app/(app)/medications`, `app/(app)/reports`, `app/(app)/statistics`, `app/(app)/settings` (static/mock single-responsibility pages), `app/(public)/login`, `app/(public)/signup` (cohesive single-purpose forms).
+- Refatoradas (REFACTOR): `app/(app)/glucose`, `app/(app)/meals`, `app/(app)/activity`, `app/(app)/notes`, `app/(app)/timeline` — each previously mixed auth, filter state, data hook, dialog/delete state, submit/delete logic, toasts, empty state and JSX composition on a single page.
+
+Estrutura adotada and decisions:
+- Each refactored route page became a `"use client"` thin entry point that renders its `<Feature>Widget`. All behavior/state/data moved into `widget/<feature>.widget.tsx`; the page-shell presentational block (title header + filter pills + period filter, or composer) was extracted into `ui/<feature>-page-header.ui.tsx`.
+- Reused existing feature components (`*-list.tsx`, `*-form-dialog.tsx`, `note-composer.tsx`) and shared components (`empty-state`, `list-skeleton`, `error-state`, `confirm-delete-dialog`, `option-pills`, `period-filter`, `page-header`) instead of duplicating.
+- Server/Client care: no new `"use client"` beyond what the pages already required for state/hooks; no server data-fetching was moved to the client; existing hook/service boundary unchanged.
+- No new business logic, API contracts, or UX behavior were introduced — refactor was purely structural.
+
+Testing strategy: preserved all existing `lib/**/*.test.ts` coverage (all paths through services/hooks remain unchanged); the extracted UI components are stateless and receive props, remaining trivially testable in isolation. Validation performed: `tsc --noEmit`, `eslint`, `vitest run`, `next build` — all green after the refactor.
 
 ## 2. Server Actions & Client Components
 
