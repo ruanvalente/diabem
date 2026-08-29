@@ -67,6 +67,35 @@ describe("listTimeline", () => {
     }
   });
 
+  it("keeps only the record types listed in the multi-type filter", async () => {
+    await createGlucoseReading("user-a", {
+      value: 100,
+      context: "fasting",
+      measuredAtLocal: "2026-08-28T08:30",
+    });
+    await createMeal("user-a", {
+      type: "lunch",
+      description: "Arroz, feijão e frango",
+      consumedAtLocal: "2026-08-28T12:30",
+    });
+    await createActivity("user-a", {
+      type: "walking",
+      durationMinutes: 30,
+      startedAtLocal: "2026-08-28T07:00",
+    });
+    await createNote("user-a", { content: "uma nota" });
+
+    const result = await listTimeline("user-a", {
+      types: ["glucose", "activity"],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data).toHaveLength(2);
+      const kinds = result.data.map((event) => event.type).sort();
+      expect(kinds).toEqual(["activity", "glucose"]);
+    }
+  });
+
   it("only considers records inside the requested period", async () => {
     await createGlucoseReading("user-a", {
       value: 128,
