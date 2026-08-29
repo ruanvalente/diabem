@@ -45,6 +45,29 @@ src/
 - Only opt into Client Components (`'use client'`) when necessary for interactivity, state, or browser APIs
 - Keep data-fetching and business logic in Server Components or Server Actions
 
+### Dashboard Feature: Separation of Responsibilities
+The Dashboard (`app/(app)/dashboard/page.tsx`) is refactored around a Feature-based Widget/UI architecture. The route page is only an entry point; behavior lives in widgets and pure presentation lives in UI components.
+
+```text
+Page     app/(app)/dashboard/page.tsx            → thin entry point, composes the widget
+Widget   components/features/dashboard/widget/   → hooks, data-fetching, state, composition
+UI       components/features/dashboard/ui/       → pure presentational components (props-only)
+```
+
+Conventions:
+- **`*.widget.tsx`** — owns behavior: hooks, `useEffect`, data fetching, state, error/loading/empty handling, and composition of UI components. Example: `dashboard.widget.tsx`.
+- **`*.ui.tsx`** — purely presentational: no business rules, no feature state, no hooks/effects/API calls; receives everything it renders via props. Examples: `dashboard-header.ui.tsx`, `quick-actions.ui.tsx`, `last-reading-card.ui.tsx`, `summary-card.ui.tsx`, `day-summary-list.ui.tsx`.
+- UI components must not import from `widget/` at runtime; shared feature types live in `components/features/dashboard/types.ts` and pure helpers (e.g. `greeting`) in `components/features/dashboard/utils/`.
+- Feature-specific hooks live in `components/features/dashboard/hooks/` (e.g. `use-today-range.ts`).
+- Pure data derivation (e.g. `buildSummaryCards`, `QUICK_ACTIONS`) lives in `widget/dashboard.data.ts`.
+
+Dashboard responsibilities map:
+- Entry point → `page.tsx`
+- Auth + health hooks orchestration, today-range filter, focus refresh, loading/error handling → `dashboard.widget.tsx`
+- Greeting header → `dashboard-header.ui.tsx`
+- "Última medição" card (empty/filled states, count, history link) → `last-reading-card.ui.tsx`
+- "Ações rápidas" grid → `quick-actions.ui.tsx`
+- "Resumo do dia" list + item → `day-summary-list.ui.tsx` / `summary-card.ui.tsx`
 
 ## 2. Server Actions & Client Components
 
