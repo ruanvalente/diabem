@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth/use-auth";
 import { useGlucose } from "@/lib/health/hooks/use-glucose";
 import { useMeals } from "@/lib/health/hooks/use-meals";
 import { useActivities } from "@/lib/health/hooks/use-activities";
 import { useNotes } from "@/lib/health/hooks/use-notes";
+import { useIntelligence } from "@/lib/intelligence/use-intelligence";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
 import { PeriodRangeFilter } from "@/components/shared/period-range-filter";
@@ -28,6 +29,8 @@ import { LastReadingCard } from "../ui/last-reading-card.ui";
 import { DaySummaryList } from "../ui/day-summary-list.ui";
 import { DashboardChartsSection } from "../ui/dashboard-charts-section.ui";
 import { RecentRecords } from "../ui/recent-records.ui";
+import { InsightsSection } from "../ui/insights-section.ui";
+import { InsightDetails } from "../ui/insight-details.ui";
 
 function getSubtitle(selection: PeriodSelection): string {
   if (selection.period === "custom" && selection.custom) {
@@ -51,14 +54,15 @@ export function DashboardWidget() {
 
   useEffect(() => {
     const refresh = () => setRange(resolvePeriodSelectionRange(selection));
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
     refresh();
     window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") refresh();
-    });
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [selection]);
 
@@ -102,6 +106,20 @@ export function DashboardWidget() {
     notes: notes.records,
   };
 
+  const analysisPeriod = useMemo(() => {
+    if (!range.from || !range.to) return null;
+    return { start: range.from, end: range.to };
+  }, [range]);
+
+  const intelligence = useIntelligence({
+    glucose: data.glucose,
+    meals: data.meals,
+    activities: data.activities,
+    notes: data.notes,
+    period: analysisPeriod,
+    enabled: !!analysisPeriod && !isLoading,
+  });
+
   const adverbial = periodAdverbial(selection);
   const summaryCards = buildSummaryCards(data, adverbial);
   const charts = buildDashboardCharts(data, range);
@@ -141,6 +159,14 @@ export function DashboardWidget() {
           />
           <QuickActions actions={QUICK_ACTIONS} />
           <DaySummaryList cards={summaryCards} title="Resumo do período" />
+          {!isLoading && intelligence.insights.length > 0 && (
+            <InsightsSection
+              insights={intelligence.insights}
+              renderCardAction={(insight) => (
+                <InsightDetails insight={insight} />
+              )}
+            />
+          )}
           <DashboardChartsSection
             cards={charts.cards}
             hasData={charts.hasData}
