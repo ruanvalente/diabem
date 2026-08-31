@@ -1059,7 +1059,138 @@ Uma nova feature ou refatoração só deve ser considerada concluída quando:
 
 ---
 
-# 32. Regra de ouro
+# 32. Módulo Intelligence
+
+O módulo `lib/intelligence/` implementa a análise determinística e **local-only** dos dados de saúde (sprint "Intelligence"). Ele segue o pipeline:
+
+```text
+Analytics Engine
+       ↓
+Rule Engine
+       ↓
+Insight Engine
+```
+
+## 32.1 Motivação
+
+Gerar insights para o usuário sem depender de rede, servidor ou modelos externos. Todo o processamento é determinístico e executado localmente no dispositivo, respeitando os princípios de local-first e privacy-by-design.
+
+## 32.2 Estrutura
+
+```text
+lib/intelligence/
+├── analytics/    # Analytics Engine: funções puras (estatística, tendência, faixas do dia, comparação de períodos)
+├── rules/        # Rule Engine: regras determinísticas sobre o contexto analítico
+├── insights/     # Insight Engine: gera insights PT-BR a partir dos padrões detectados
+├── types/        # Tipos compartilhados do pipeline
+├── worker/       # Web Worker (off-thread) + adapter
+├── intelligence.service.ts   # Orquestra o pipeline; expõe funções estruturadas
+├── use-intelligence.ts       # Hook React: Worker com fallback síncrono
+└── __fixtures__/             # Factories de teste
+```
+
+Os `Analytics / Rules / Insights Engines` são compostos por **funções puras**: não acessam React, `IndexedDB` ou APIs de navegador. Eles recebem dados e retornam novos dados. Isso garante determinismo e testabilidade.
+
+## 32.3 Pipeline e fronteiras de dados
+
+### Analytics Engine
+
+- Agrega glucose (estatística básica), refeições, atividades e timeline.
+- Classifica leituras por faixa do dia (`morning`, `afternoon`, `evening`, `night`).
+- Identifica tendências (crescente, decrescente, estável, insuficiente).
+- Constrói relações temporais refeição↔glucose e atividade↔glucose.
+- Compara o período atual com o anterior equivalente.
+
+### Rule Engine
+
+Avalia o `analytics` e produz **padrões** (`Pattern[]`) com evidências. As regras são declaradas em arquivos separados e consolidadas no `rule-engine`. Exemplos: dados insuficientes, concentração horária, variação da média, maior variabilidade, relação com refeições/atividades, tendência detectada.
+
+Regra de ouro das regras/insights:
+
+- Nunca correlacionar → causalidade;
+- Estatística → diagnóstico;
+- Padrão → prescrição.
+
+A linguagem da UI (PT-BR) deve ser **neutra e não alarmista**.
+
+### Insight Engine
+
+Converte padrões em `Insight[]` com título, descrição e evidências estruturadas. Retorna vazio quando não há padrões.
+
+## 32.4 Web Worker e hook
+
+- `worker/intelligence.worker.ts` executa o pipeline completo **off-thread**.
+- `worker/worker-adapter.ts` gerencia requisições assíncronas com `requestId` monotônico; respostas com `requestId` desatualizado são descartadas (cancelamento de modelo de requisição).
+- `use-intelligence.ts` tenta o Worker primeiro e, se indisponível, faz fallback para o `analyzeIntelligence` síncrono.
+- O Worker recebe apenas dados **serializáveis** (nunca o repositório/banco). O acesso ao `IndexedDB` permanece fora do Worker; apenas os dados já carregados são transferidos.
+
+## 32.5 Serviço estruturado (preparação para MCP)
+
+`lib/intelligence/intelligence.service.ts` expõe funções que retornam dados estruturados, prontas para serem expostas futuramente como ferramentas MCP:
+
+```text
+getGlucoseSummary(); getTimeline(); getMealSummary();
+getActivitySummary(); getInsights(); comparePeriods();
+```
+
+Fronteira futura desejada:
+
+```text
+MCP Tool
+   ↓
+Service
+   ↓
+Analytics
+   ↓
+Local Data
+```
+
+**Não permitir que uma futura IA acesse diretamente o `IndexedDB`.** A IA deve consumir apenas a saída estruturada dos serviços.
+
+## 32.6 Preparação para IA local
+
+A saída do Analytics é estruturada de forma que uma futura IA local possa consumir:
+
+```json
+{
+  "period": {},
+  "metrics": {},
+  "patterns": [],
+  "insights": []
+}
+```
+
+Isso permite futuramente:
+
+```text
+Local Analytics
+       ↓
+Structured Context
+       ↓
+Local LLM
+```
+
+Nesta sprint **não** há uso de LLM/API/MCP/serviços externos.
+
+## 32.7 Isolamento por usuário
+
+Cada entidade possui `userId`, e as análises são executadas sobre dados já filtrados por usuário. Os engines operam sobre as coleções recebidas (compostas de uma única sessão), não consultando dados de outros usuários.
+
+## 32.8 Testabilidade
+
+Como os engines são funções puras, são testados isoladamente:
+
+- Estatística (média, mediana, min, max, desvio padrão);
+- Faixas do dia e limites de período/data;
+- Tendência (conjuntos crescentes/decrescentes/estáveis/insuficientes);
+- Cada regra → padrão esperado;
+- Geração de insights;
+- Protocolo do Worker (requisição/resposta válidas, erro, `requestId`, concorrência, conjunto vazio);
+- Isolamento de usuário.
+
+---
+
+# 33. Regra de ouro
 
 A arquitetura deve seguir o seguinte princípio:
 
@@ -1093,7 +1224,7 @@ A arquitetura deve crescer junto com a complexidade do domínio.
 
 ---
 
-# 33. Princípio final
+# 34. Princípio final
 
 Sempre faça três perguntas antes de adicionar uma nova abstração:
 
