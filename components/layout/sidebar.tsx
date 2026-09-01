@@ -33,7 +33,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-border lg:bg-card">
+    <aside className="flex h-full w-64 flex-col overflow-y-auto border-r border-border bg-card">
       <div className="flex h-14 items-center gap-2 border-b border-border px-5">
         <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
           <Heart className="size-4 text-primary-foreground" />

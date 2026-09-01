@@ -28,6 +28,7 @@ export function BottomNav() {
               <Link
                 key={item.label}
                 href="/glucose"
+                aria-label="Registrar glicemia"
                 className="flex size-12 -translate-y-3 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-elevated)]"
               >
                 <motion.div

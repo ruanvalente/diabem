@@ -1,4 +1,7 @@
-import type { IntelligenceRequest, IntelligenceResponse } from "../types/worker.types";
+import * as workerTypes from "../types/worker.types";
+
+type IntelligenceRequest = workerTypes.IntelligenceRequest;
+type IntelligenceResponse = workerTypes.IntelligenceResponse;
 
 type PendingRequest = {
   resolve: (response: IntelligenceResponse) => void;
@@ -6,7 +9,7 @@ type PendingRequest = {
 
 const INTELLIGENCE_WORKER_URL = new URL(
   "./intelligence.worker.ts",
-  import.meta.url
+  import.meta.url,
 );
 
 /**
@@ -48,7 +51,10 @@ export class IntelligenceWorkerAdapter {
     return this.worker;
   }
 
-  analyze(request: Omit<IntelligenceRequest, "requestId">, requestId: string): Promise<IntelligenceResponse> {
+  analyze(
+    request: Omit<IntelligenceRequest, "requestId">,
+    requestId: string,
+  ): Promise<IntelligenceResponse> {
     const worker = this.getWorker();
     if (!worker) {
       return Promise.resolve({

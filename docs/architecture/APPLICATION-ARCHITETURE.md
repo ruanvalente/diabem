@@ -1238,6 +1238,128 @@ Se não houver uma resposta clara, prefira a solução mais simples.
 
 > **A melhor arquitetura não é a que possui mais camadas. É a que torna as responsabilidades do sistema mais claras, testáveis, seguras e fáceis de evoluir.**
 
+# 35. Local-First, Offline e Criptografia (Sprint 6)
+
+Esta seção documenta as decisões arquiteturais permanentes introduzidas pela
+Sprint 6 (Offline + Privacy). Ela complementa o `COMPONENT-ARCHITETURE.md` e
+deve ser respeitada em qualquer evolução futura.
+
+## 35.1 Fonte dos dados
+
+O **IndexedDB** é a única fonte dos dados do usuário. Não existe backend
+remoto; Cache Storage contém apenas arquivos da aplicação (shell, JS, CSS,
+fontes, ícones) e **nunca** dados de saúde.
+
+```text
+UI / Widget
+   ↓
+Services / Hooks
+   ↓
+Repositories
+   ↓
+Crypto Layer  (AES-GCM, chave em memória)
+   ↓
+IndexedDB
+```
+
+## 35.2 Criptografia dos dados em repouso
+
+- Derivação de chave por usuário: **PBKDF2** (Web Crypto API) a partir da
+  senha + salt aleatório por usuário (`keySalt`, armazenado com os metadados
+  criptográficos; o salt não é secreto).
+- Criptografia por operação: **AES-GCM** com IV único aleatório por operação
+  sobre campos sensíveis (observações, descrições de refeição, notas).
+- Payload versionado (`version` + `algorithm` + `iv` + `data`).
+- A **chave de dados fica apenas em memória**, nunca em `localStorage`,
+  IndexedDB, cookies ou JS. É derivada no login/cadastro, descartada no logout
+  e a qualquer interrupção do documento.
+- Sessão: `restoreSession` só restaura o usuário quando a chave está em
+  memória. Como a chave não é persistida, **qualquer recarga do documento exige
+  re-login** para usuários com `keySalt` (comportamento intencional). Um
+  re-login offline funciona normalmente: a derivação e a descriptografia são
+  locais.
+
+## 35.3 Migração e compatibilidade
+
+A migração Dexie `v3` adiciona `keySalt` aos usuários. Registros legados em
+texto puro são migrados para o formato criptografado na gravação
+(`encryptSensitiveFields` é idempotente). Falhas de descriptografia degradam
+para valor vazio (ou `undefined`) sem quebrar a listagem inteira.
+
+## 35.4 Service Worker e offline
+
+- `public/sw.js` é restrito a responsabilidades de cache: pré-cache do shell,
+  **cache-first para estáticos**, **network-first para navegação** com fallback
+  de shell, caches versionados (`diabem-static-v<N>`, `diabem-runtime-v<N>`) e
+  limpeza de caches antigos.
+- O Service Worker **não contém regras de negócio** e não conhece dados de
+  saúde. Requisições a `/api` e `/_next/data` não são interceptadas.
+- **Separação estrita**: Cache Storage = arquivos da aplicação; IndexedDB =
+  dados do usuário (criptografados). Insights derivados não são persistidos em
+  Cache Storage.
+- Experiência offline: após o primeiro carregamento o shell e os assets ficam
+  disponíveis offline; os dados vêm do IndexedDB. CRUD completo funciona num
+  documento já carregado sem rede. A navegação entre rotas offline (navegação
+  client-side RSC / reload) depende da disponibilidade do payload RSC e da
+  re-autenticação; isso é validado no build de produção.
+
+## 35.5 Segurança (headers e CSP)
+
+O `next.config.ts` aplica headers de segurança em todas as rotas:
+
+```text
+Content-Security-Policy (ver abaixo)
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: no-referrer
+Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+```
+
+Diretivas CSP adotadas (aplicadas como header HTTP; defense-in-depth além das
+camadas de escaping/sanitização existentes):
+
+```text
+default-src  'self'
+script-src   'self' 'unsafe-inline' (dev também: 'unsafe-eval')
+style-src    'self' 'unsafe-inline'
+img-src      'self' data: blob:
+font-src     'self' data:
+connect-src  'self' (dev também: ws: http://localhost:*)
+worker-src   'self' blob:
+object-src   'none'
+base-uri     'self'
+form-action  'self'
+frame-ancestors 'none'
+upgrade-insecure-requests (somente produção)
+```
+
+**Trade-off documentado**: `script-src`/`style-src` exigem `'unsafe-inline'`
+(requerido pelo Next.js para hidratação/streaming). `'unsafe-eval'` é incluído
+somente em desenvolvimento (exigido pelo Turbopack/webpack para HMR) — o build
+de produção funciona sem ele (validado por build + smoke test). Remover
+`'unsafe-inline'` exige CSP baseada em nonce via middleware — melhoria futura,
+não drift atual.
+
+## 35.6 Persistência de storage
+
+`lib/offline/storage.service.ts`:
+- `requestPersistentStorage()` — solicita armazenamento durável (best-effort;
+  se negado, a aplicação continua em modo degradado).
+- `getStorageEstimate()` / `isNearStorageLimit()` — monitora a quota.
+- `components/layout/storage-warning.tsx` — aviso dispensável quando o
+  dispositivo está perto do limite (accessível, `aria-live`, reavaliado ao
+  voltar à aba).
+
+## 35.7 Limitações documentadas
+
+1. A criptografia local não protege contra um dispositivo já comprometido,
+   malware ou JavaScript malicioso executando na mesma sessão. O objetivo é a
+   proteção dos dados **em repouso** no armazenamento local (§25 do plano).
+2. Chave em memória ⇒ recarga/abertura do app exige nova autenticação (por
+   design). Sessão local é restaurada somente com chave presente.
+3. Analytics/Insights são inteiramente locais (estatística determinística +
+   Web Worker); não há dependência de rede.
+
 ### Eu usaria os dois documentos juntos
 
 A arquitetura geral ficaria:

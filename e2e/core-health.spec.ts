@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { goTo } from "./helpers/nav";
 
 const EMAIL = `e2e-${Date.now()}@test.dev`;
 
@@ -15,7 +16,7 @@ async function signup(page: Page) {
 test("registers a glucose reading and sees it in the list", async ({ page }) => {
   await signup(page);
 
-  await page.goto("/glucose");
+  await goTo(page, "/glucose");
   await page.getByRole("button", { name: "Registrar", exact: true }).click();
 
   const dialog = page.getByRole("dialog");
@@ -33,7 +34,7 @@ test("registers a glucose reading and sees it in the list", async ({ page }) => 
 test("registers a meal and then deletes it", async ({ page }) => {
   await signup(page);
 
-  await page.goto("/meals");
+  await goTo(page, "/meals");
   await page.getByRole("button", { name: "Registrar", exact: true }).click();
 
   const dialog = page.getByRole("dialog");
@@ -58,7 +59,7 @@ test("registers a meal and then deletes it", async ({ page }) => {
 test("all entities appear on the timeline", async ({ page }) => {
   await signup(page);
 
-  await page.goto("/glucose");
+  await goTo(page, "/glucose");
   await page.getByRole("button", { name: "Registrar", exact: true }).click();
   const glucoseDialog = page.getByRole("dialog");
   await glucoseDialog.getByLabel("Valor da medição").fill("95");
@@ -68,15 +69,17 @@ test("all entities appear on the timeline", async ({ page }) => {
     page.getByText("Glicemia registrada com sucesso.")
   ).toBeVisible();
 
-  await page.goto("/notes");
+  await goTo(page, "/notes");
   await page
     .getByRole("textbox", { name: "Nova observação" })
     .fill("Senti-me bem hoje");
   await page.getByRole("button", { name: "Salvar observação" }).click();
   await expect(page.getByText("Senti-me bem hoje")).toBeVisible();
 
-  await page.goto("/timeline");
-  await expect(page.getByText("Linha do tempo")).toBeVisible();
+  await goTo(page, "/timeline");
+  await expect(
+    page.getByRole("heading", { name: "Linha do tempo" }),
+  ).toBeVisible();
   await expect(page.getByText("95 mg/dL")).toBeVisible();
   await expect(page.getByText("Senti-me bem hoje")).toBeVisible();
 });

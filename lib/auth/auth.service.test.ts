@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { getDatabase } from "@/lib/db/database";
+import { clearSessionDataKey } from "@/lib/db/session-key";
 import { register, login, logout, getCurrentUser, restoreSession } from "./auth.service";
 
 beforeEach(async () => {
+  clearSessionDataKey();
   const db = getDatabase();
   await db.users.clear();
   await db.sessions.clear();
@@ -190,6 +192,22 @@ describe("restoreSession", () => {
   });
 
   it("returns null when no session to restore", async () => {
+    const user = await restoreSession();
+    expect(user).toBeNull();
+  });
+
+  it("returns null after key is wiped (browser restart) to force re-auth", async () => {
+    await register({
+      name: "Restart User",
+      email: "restart@test.com",
+      password: "Senha123",
+      confirmPassword: "Senha123",
+    });
+
+    // Simulates a fresh page load: the persisted session survives but the
+    // in-memory encryption key is gone.
+    await clearSessionDataKey();
+
     const user = await restoreSession();
     expect(user).toBeNull();
   });
