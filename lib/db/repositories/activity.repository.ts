@@ -1,5 +1,10 @@
 import Dexie from "dexie";
 import { getDatabase } from "../database";
+import {
+  decryptSensitiveFields,
+  encryptSensitiveFields,
+} from "../crypto-field";
+import type { EncryptedPayload } from "../../crypto/crypto.types";
 import type { Activity, ActivityType } from "../types";
 
 export type ActivityFilter = {
@@ -8,8 +13,35 @@ export type ActivityFilter = {
   type?: ActivityType;
 };
 
-function getTable() {
-  return getDatabase().activities;
+/**
+ * Persisted shape: the sensitive free-text field (`notes`) is encrypted at
+ * rest; the fields used by the compound query indexes stay plaintext.
+ */
+type StoredActivity = Omit<Activity, "notes"> & {
+  notes?: string | EncryptedPayload;
+};
+
+function getTable(): Dexie.Table<StoredActivity, string> {
+  return getDatabase().activities as Dexie.Table<StoredActivity, string>;
+}
+
+async function encryptRecord(record: Activity): Promise<StoredActivity> {
+  const { fields, encrypted: didEncrypt } = await encryptSensitiveFields({
+    notes: record.notes,
+  });
+  const stored: StoredActivity = {
+    ...record,
+    notes: didEncrypt
+      ? (fields.notes as string | EncryptedPayload | undefined) ?? undefined
+      : record.notes,
+  };
+  return stored;
+}
+
+async function decryptRecord(stored: StoredActivity): Promise<Activity> {
+  const out = await decryptSensitiveFields({ notes: stored.notes });
+  const notes = typeof out.notes === "string" ? out.notes : undefined;
+  return { ...stored, notes };
 }
 
 async function create(
@@ -23,12 +55,13 @@ async function create(
     createdAt: now,
     updatedAt: now,
   };
-  await getTable().add(record);
+  await getTable().add(await encryptRecord(record));
   return record;
 }
 
 async function findById(id: string): Promise<Activity | undefined> {
-  return getTable().get(id);
+  const stored = await getTable().get(id);
+  return stored ? decryptRecord(stored) : undefined;
 }
 
 /**
@@ -46,9 +79,11 @@ async function findByUser(
     .between([userId, from], [userId, to], true, true)
     .toArray();
 
-  return records
-    .filter((record) => !filter.type || record.type === filter.type)
-    .reverse();
+  const scoped = records.filter(
+    (record) => !filter.type || record.type === filter.type
+  );
+  const decrypted = await Promise.all(scoped.map(decryptRecord));
+  return decrypted.reverse();
 }
 
 async function findRecentByUser(
@@ -72,13 +107,20 @@ async function update(
   const existing = await getTable().get(id);
   if (!existing) return undefined;
 
-  const updated: Activity = {
+  const updated: StoredActivity = {
     ...existing,
     ...data,
     updatedAt: new Date().toISOString(),
   };
+
+  const { fields: encrypted } = await encryptSensitiveFields({
+    notes: updated.notes,
+  });
+  updated.notes =
+    (encrypted.notes as string | EncryptedPayload | undefined) ?? undefined;
+
   await getTable().put(updated);
-  return updated;
+  return decryptRecord(updated);
 }
 
 async function deleteById(id: string): Promise<boolean> {

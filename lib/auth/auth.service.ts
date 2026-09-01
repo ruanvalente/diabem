@@ -2,6 +2,12 @@ import { createUserSchema, loginUserSchema } from "../db/schema";
 import { userRepository } from "../db/repositories/user.repository";
 import { sessionRepository } from "../db/repositories/session.repository";
 import { hashPassword, verifyPassword } from "../crypto/key-derivation";
+import { cryptoService } from "../crypto/crypto.service";
+import {
+  clearSessionDataKey,
+  getSessionDataKey,
+  setSessionDataKey,
+} from "../db/session-key";
 import type {
   AuthUser,
   LoginCredentials,
@@ -47,11 +53,19 @@ export async function register(
     return { ok: false, error: derivation.error };
   }
 
+  // Derive a data-at-rest encryption key (per-user salt) and hold it in memory.
+  const keys = await cryptoService.createUserKeys(password);
+  if (!keys.ok) {
+    return { ok: false, error: keys.error };
+  }
+  setSessionDataKey(keys.data.dataKey);
+
   const user = await userRepository.create({
     name,
     email,
     passwordHash: derivation.data.hash,
     passwordSalt: derivation.data.salt,
+    keySalt: keys.data.salt,
   });
 
   await sessionRepository.create({ userId: user.id });
@@ -88,6 +102,15 @@ export async function login(
     return { ok: false, error: "E-mail ou senha incorretos" };
   }
 
+  // Re-derive the data-at-rest encryption key from the stored per-user salt.
+  if (user.keySalt) {
+    const keyResult = await cryptoService.restoreUserKey(password, user.keySalt);
+    if (!keyResult.ok) {
+      return { ok: false, error: keyResult.error };
+    }
+    setSessionDataKey(keyResult.data);
+  }
+
   const currentSession = await sessionRepository.getCurrent();
   if (currentSession) {
     await sessionRepository.deleteById(currentSession.id);
@@ -103,6 +126,9 @@ export async function logout(): Promise<void> {
   if (session) {
     await sessionRepository.deleteById(session.id);
   }
+  // Wipe the data-at-rest encryption key from memory. Encrypted data stays on
+  // disk and is recoverable on next login with the correct password.
+  clearSessionDataKey();
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
@@ -113,6 +139,26 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   return toAuthUser(user);
 }
 
+/**
+ * Restores the current user from the persisted session, but only when the
+ * data-at-rest encryption key is available in memory.
+ *
+ * A session may survive a browser restart (persisted in IndexedDB). Because the
+ * encryption key is held only in memory and is never persisted, a fresh page
+ * load has no key. Returning a user we cannot decrypt data for would silently
+ * show blank records, so we force re-authentication when the user has a
+ * `keySalt` (encryption configured) but no key is present.
+ */
 export async function restoreSession(): Promise<AuthUser | null> {
-  return getCurrentUser();
+  const session = await sessionRepository.getCurrent();
+  if (!session) return null;
+
+  const user = await userRepository.findById(session.userId);
+  if (!user) return null;
+
+  if (user.keySalt && !getSessionDataKey()) {
+    return null;
+  }
+
+  return toAuthUser(user);
 }

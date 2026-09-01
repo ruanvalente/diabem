@@ -9,7 +9,7 @@ import type {
 } from "./types";
 
 const DB_NAME = "diabem";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 class DiaBemDatabase extends Dexie {
   users!: Table<User, string>;
@@ -25,7 +25,14 @@ class DiaBemDatabase extends Dexie {
       users: "id, email, createdAt",
       sessions: "id, userId, createdAt",
     });
+    this.version(2).stores({
+      glucoseReadings: "id, userId, [userId+measuredAt], [userId+context]",
+      meals: "id, userId, [userId+consumedAt], [userId+type]",
+      activities: "id, userId, [userId+startedAt], [userId+type]",
+      notes: "id, userId, [userId+createdAt]",
+    });
     this.version(DB_VERSION).stores({
+      users: "id, email, createdAt, keySalt",
       glucoseReadings: "id, userId, [userId+measuredAt], [userId+context]",
       meals: "id, userId, [userId+consumedAt], [userId+type]",
       activities: "id, userId, [userId+startedAt], [userId+type]",

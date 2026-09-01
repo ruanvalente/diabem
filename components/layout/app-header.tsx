@@ -1,7 +1,6 @@
 "use client";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,9 +13,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth/use-auth";
 import { getInitials } from "@/lib/utils";
-import { Bell, LogOut, Menu, Wifi } from "lucide-react";
+import { Bell, LogOut, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
+import { ConnectionStatus } from "./connection-status";
 
 export function AppHeader() {
   const { user, logout } = useAuth();
@@ -28,7 +28,12 @@ export function AppHeader() {
         <Sheet>
           <SheetTrigger
             render={
-              <Button variant="ghost" size="icon-sm" className="lg:hidden" />
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="lg:hidden"
+                aria-label="Abrir menu de navegação"
+              />
             }
           >
             <Menu className="size-5 hidden" />
@@ -40,13 +45,7 @@ export function AppHeader() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Badge
-          variant="outline"
-          className="gap-1 border-success/30 bg-success/10 text-success"
-        >
-          <Wifi className="size-3" />
-          <span className="hidden sm:inline">Online</span>
-        </Badge>
+        <ConnectionStatus />
 
         <Button variant="ghost" size="icon-sm" className="relative">
           <Bell className="size-4" />

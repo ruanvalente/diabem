@@ -1,5 +1,10 @@
 import Dexie from "dexie";
 import { getDatabase } from "../database";
+import {
+  decryptSensitiveFields,
+  encryptSensitiveFields,
+} from "../crypto-field";
+import type { EncryptedPayload } from "../../crypto/crypto.types";
 import type { Meal, MealType } from "../types";
 
 export type MealFilter = {
@@ -8,8 +13,46 @@ export type MealFilter = {
   type?: MealType;
 };
 
-function getTable() {
-  return getDatabase().meals;
+/**
+ * Persisted shape: the sensitive free-text fields (`description`, `notes`) are
+ * encrypted at rest; the fields used by the compound query indexes stay plain.
+ */
+type StoredMeal = Omit<Meal, "description" | "notes"> & {
+  description?: string | EncryptedPayload;
+  notes?: string | EncryptedPayload;
+};
+
+function getTable(): Dexie.Table<StoredMeal, string> {
+  return getDatabase().meals as Dexie.Table<StoredMeal, string>;
+}
+
+async function encryptRecord(record: Meal): Promise<StoredMeal> {
+  const { fields, encrypted: didEncrypt } = await encryptSensitiveFields({
+    description: record.description,
+    notes: record.notes,
+  });
+  const stored: StoredMeal = {
+    ...record,
+    ...(didEncrypt
+      ? {
+          description:
+            (fields.description as string | EncryptedPayload | undefined) ?? "",
+          notes: (fields.notes as string | EncryptedPayload | undefined) ?? undefined,
+        }
+      : { description: record.description, notes: record.notes }),
+  };
+  return stored;
+}
+
+async function decryptRecord(stored: StoredMeal): Promise<Meal> {
+  const out = await decryptSensitiveFields({
+    description: stored.description,
+    notes: stored.notes,
+  });
+  const description =
+    typeof out.description === "string" ? out.description : "";
+  const notes = typeof out.notes === "string" ? out.notes : undefined;
+  return { ...stored, description, notes };
 }
 
 async function create(
@@ -23,12 +66,13 @@ async function create(
     createdAt: now,
     updatedAt: now,
   };
-  await getTable().add(record);
+  await getTable().add(await encryptRecord(record));
   return record;
 }
 
 async function findById(id: string): Promise<Meal | undefined> {
-  return getTable().get(id);
+  const stored = await getTable().get(id);
+  return stored ? decryptRecord(stored) : undefined;
 }
 
 /**
@@ -46,9 +90,11 @@ async function findByUser(
     .between([userId, from], [userId, to], true, true)
     .toArray();
 
-  return records
-    .filter((record) => !filter.type || record.type === filter.type)
-    .reverse();
+  const scoped = records.filter(
+    (record) => !filter.type || record.type === filter.type
+  );
+  const decrypted = await Promise.all(scoped.map(decryptRecord));
+  return decrypted.reverse();
 }
 
 async function findRecentByUser(userId: string, limit = 5): Promise<Meal[]> {
@@ -67,13 +113,23 @@ async function update(
   const existing = await getTable().get(id);
   if (!existing) return undefined;
 
-  const updated: Meal = {
+  const updated: StoredMeal = {
     ...existing,
     ...data,
     updatedAt: new Date().toISOString(),
   };
+
+  const { fields: encrypted } = await encryptSensitiveFields({
+    description: updated.description,
+    notes: updated.notes,
+  });
+  updated.description =
+    (encrypted.description as string | EncryptedPayload | undefined) ?? "";
+  updated.notes =
+    (encrypted.notes as string | EncryptedPayload | undefined) ?? undefined;
+
   await getTable().put(updated);
-  return updated;
+  return decryptRecord(updated);
 }
 
 async function deleteById(id: string): Promise<boolean> {
