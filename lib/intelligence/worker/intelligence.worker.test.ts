@@ -53,6 +53,9 @@ function request(requestId: string) {
 
 describe("intelligence worker", () => {
   beforeEach(async () => {
+    // Re-evaluate the worker module on each test so `self.onmessage` is
+    // re-registered against the current shim. `vi.resetModules()` busts the
+    // module cache while keeping a clean extension so the TS transform applies.
     vi.resetModules();
     await import("./intelligence.worker");
   });
@@ -74,7 +77,7 @@ describe("intelligence worker", () => {
   it("copies the requestId through the response", () => {
     send(request("req-42"));
     expect((postedResponses[0] as { requestId: string }).requestId).toBe(
-      "req-42"
+      "req-42",
     );
   });
 

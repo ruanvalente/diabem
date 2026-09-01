@@ -1,5 +1,10 @@
 import Dexie from "dexie";
 import { getDatabase } from "../database";
+import {
+  decryptSensitiveFields,
+  encryptSensitiveFields,
+} from "../crypto-field";
+import type { EncryptedPayload } from "../../crypto/crypto.types";
 import type { Note } from "../types";
 
 export type NoteFilter = {
@@ -7,8 +12,35 @@ export type NoteFilter = {
   to?: string;
 };
 
-function getTable() {
-  return getDatabase().notes;
+/**
+ * Persisted shape: the sensitive free-text field (`content`) is encrypted at
+ * rest; the fields used by the compound query index stay plaintext.
+ */
+type StoredNote = Omit<Note, "content"> & {
+  content?: string | EncryptedPayload;
+};
+
+function getTable(): Dexie.Table<StoredNote, string> {
+  return getDatabase().notes as Dexie.Table<StoredNote, string>;
+}
+
+async function encryptRecord(record: Note): Promise<StoredNote> {
+  const { fields, encrypted: didEncrypt } = await encryptSensitiveFields({
+    content: record.content,
+  });
+  const stored: StoredNote = {
+    ...record,
+    content: didEncrypt
+      ? (fields.content as string | EncryptedPayload | undefined) ?? ""
+      : record.content,
+  };
+  return stored;
+}
+
+async function decryptRecord(stored: StoredNote): Promise<Note> {
+  const out = await decryptSensitiveFields({ content: stored.content });
+  const content = typeof out.content === "string" ? out.content : "";
+  return { ...stored, content };
 }
 
 async function create(
@@ -22,12 +54,13 @@ async function create(
     createdAt: now,
     updatedAt: now,
   };
-  await getTable().add(record);
+  await getTable().add(await encryptRecord(record));
   return record;
 }
 
 async function findById(id: string): Promise<Note | undefined> {
-  return getTable().get(id);
+  const stored = await getTable().get(id);
+  return stored ? decryptRecord(stored) : undefined;
 }
 
 /**
@@ -45,7 +78,8 @@ async function findByUser(
     .between([userId, from], [userId, to], true, true)
     .toArray();
 
-  return records.reverse();
+  const decrypted = await Promise.all(records.map(decryptRecord));
+  return decrypted.reverse();
 }
 
 async function findRecentByUser(userId: string, limit = 5): Promise<Note[]> {
@@ -64,13 +98,20 @@ async function update(
   const existing = await getTable().get(id);
   if (!existing) return undefined;
 
-  const updated: Note = {
+  const updated: StoredNote = {
     ...existing,
     ...data,
     updatedAt: new Date().toISOString(),
   };
+
+  const { fields: encrypted } = await encryptSensitiveFields({
+    content: updated.content,
+  });
+  updated.content =
+    (encrypted.content as string | EncryptedPayload | undefined) ?? "";
+
   await getTable().put(updated);
-  return updated;
+  return decryptRecord(updated);
 }
 
 async function deleteById(id: string): Promise<boolean> {

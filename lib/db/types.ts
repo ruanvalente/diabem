@@ -4,6 +4,8 @@ export type User = {
   name: string;
   passwordHash: string;
   passwordSalt: string;
+  /** Per-user random salt for data-at-rest encryption key derivation. */
+  keySalt?: string;
   createdAt: string;
   updatedAt: string;
 };

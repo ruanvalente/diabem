@@ -30,7 +30,9 @@ async function findByEmail(email: string): Promise<User | undefined> {
 
 async function update(
   id: string,
-  data: Partial<Pick<User, "name" | "email" | "passwordHash" | "passwordSalt">>
+  data: Partial<
+    Pick<User, "name" | "email" | "passwordHash" | "passwordSalt" | "keySalt">
+  >
 ): Promise<User | undefined> {
   const existing = await getTable().get(id);
   if (!existing) return undefined;

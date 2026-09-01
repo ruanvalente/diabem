@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { goTo } from "./helpers/nav";
 
 const EMAIL = `e2e-${Date.now()}@test.dev`;
 
@@ -26,7 +27,7 @@ async function signup(page: Page) {
 }
 
 async function registerGlucose(page: Page, value: string) {
-  await page.goto("/glucose");
+  await goTo(page, "/glucose");
   await page.getByRole("button", { name: "Registrar", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Valor da medição").fill(value);
@@ -38,7 +39,7 @@ async function registerGlucose(page: Page, value: string) {
 }
 
 async function registerNote(page: Page, content: string) {
-  await page.goto("/notes");
+  await goTo(page, "/notes");
   await page
     .getByRole("textbox", { name: "Nova observação" })
     .fill(content);
@@ -52,7 +53,7 @@ test("dashboard shows today's reading, charts and recent records", async ({
   await signup(page);
   await registerGlucose(page, "128");
 
-  await page.goto("/dashboard");
+  await goTo(page, "/dashboard");
 
   await expect(page.getByText("Última medição")).toBeVisible();
   await expect(page.getByText("128 mg/dL", { exact: true })).toBeVisible();
@@ -74,7 +75,7 @@ test("custom period opens, validates and applies", async ({ page }) => {
   await signup(page);
   await registerGlucose(page, "128");
 
-  await page.goto("/dashboard");
+  await goTo(page, "/dashboard");
   await page.locator('[data-slot="select-trigger"]').click();
   await page.getByRole("option", { name: "Personalizado" }).click();
 
@@ -105,7 +106,7 @@ test("timeline narrows by event type with multi-select pills", async ({
   await registerGlucose(page, "95");
   await registerNote(page, "Senti-me bem hoje");
 
-  await page.goto("/timeline");
+  await goTo(page, "/timeline");
 
   await expect(page.getByText("95 mg/dL")).toBeVisible();
   await expect(page.getByText("Senti-me bem hoje")).toBeVisible();

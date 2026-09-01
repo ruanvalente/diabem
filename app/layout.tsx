@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth/auth-context";
+import { PwaProvider } from "@/components/providers/pwa-provider";
 import { Toaster } from "@/components/ui/toast";
 import "./globals.css";
 
@@ -49,8 +50,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <TooltipProvider>
           <AuthProvider>
-            {children}
-            <Toaster />
+            <PwaProvider>
+              {children}
+              <Toaster />
+            </PwaProvider>
           </AuthProvider>
         </TooltipProvider>
       </body>
