@@ -15,6 +15,8 @@ type OptionPillsProps<T extends string> = {
   value?: T | null;
   onChange: (value: T | undefined) => void;
   className?: string;
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
 };
 
 export function OptionPills<T extends string>({
@@ -22,9 +24,16 @@ export function OptionPills<T extends string>({
   value,
   onChange,
   className,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledby,
 }: OptionPillsProps<T>) {
   return (
-    <div role="group" className={cn("flex flex-wrap gap-2", className)}>
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledby}
+      className={cn("flex flex-wrap gap-2", className)}
+    >
       {options.map((option) => {
         const active = option.value === value;
         return (

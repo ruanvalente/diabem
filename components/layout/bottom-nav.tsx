@@ -10,15 +10,15 @@ const bottomNavItems = [
   { href: "/dashboard", label: "Início", icon: Home },
   { href: "/timeline", label: "Timeline", icon: Clock },
   { href: "/dashboard", label: "Registrar", icon: Plus, isAction: true },
-  { href: "/statistics", label: "Stats", icon: BarChart3 },
-  { href: "/settings", label: "Config", icon: Settings },
+  { href: "/statistics", label: "Estatísticas", icon: BarChart3 },
+  { href: "/settings", label: "Configurações", icon: Settings },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md lg:hidden">
+    <nav aria-label="Menu inferior" className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md lg:hidden">
       <div className="flex items-center justify-around px-2 py-1.5">
         {bottomNavItems.map((item) => {
           const isActive = pathname === item.href;
@@ -36,7 +36,7 @@ export function BottomNav() {
                   transition={{ type: "spring", stiffness: 400, damping: 17 }}
                   className="flex size-12 items-center justify-center rounded-full"
                 >
-                  <item.icon className="size-5" />
+                  <item.icon className="size-5" aria-hidden="true" />
                 </motion.div>
               </Link>
             );
@@ -46,6 +46,7 @@ export function BottomNav() {
             <Link
               key={item.href + item.label}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex flex-col items-center gap-0.5 px-3 py-1.5 text-[10px] font-medium transition-colors",
                 isActive ? "text-primary" : "text-muted-foreground"
@@ -55,7 +56,7 @@ export function BottomNav() {
                 whileTap={{ scale: 0.85 }}
                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
               >
-                <item.icon className="size-5" />
+                <item.icon className="size-5" aria-hidden="true" />
               </motion.div>
               {item.label}
             </Link>

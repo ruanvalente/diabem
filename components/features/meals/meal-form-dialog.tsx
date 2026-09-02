@@ -112,10 +112,14 @@ export function MealFormDialog({
 
         <div className="space-y-5">
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">
+            <label
+              id="meal-type-label"
+              className="mb-2 block text-sm font-medium text-foreground"
+            >
               Tipo de refeição
             </label>
             <OptionPills
+              aria-labelledby="meal-type-label"
               options={MEAL_TYPE_ORDER.map((value) => ({
                 value,
                 label: MEAL_TYPE_LABELS[value],
@@ -143,15 +147,21 @@ export function MealFormDialog({
               placeholder="Ex: Arroz, feijão, frango e salada"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
+              aria-invalid={!!error}
+              aria-describedby={error ? "meal-description-error" : undefined}
               className="h-12 bg-muted/50"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label
+              htmlFor="meal-notes"
+              className="mb-1.5 block text-sm font-medium text-foreground"
+            >
               Observação (opcional)
             </label>
             <Textarea
+              id="meal-notes"
               placeholder="Ex: Refeição leve"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
@@ -159,7 +169,11 @@ export function MealFormDialog({
             />
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p id="meal-description-error" role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
         </div>
 
         <DialogFooter>
@@ -169,7 +183,10 @@ export function MealFormDialog({
             className="h-12 w-full text-base"
           >
             {isSubmitting ? (
-              <Loader2 className="size-4 animate-spin" />
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                <span className="sr-only">Salvando...</span>
+              </>
             ) : isEditing ? (
               <Pencil className="size-4" />
             ) : (

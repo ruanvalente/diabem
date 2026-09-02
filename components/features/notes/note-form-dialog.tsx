@@ -87,10 +87,16 @@ export function NoteFormDialog({
               id="note-edit-content"
               value={content}
               onChange={(event) => setContent(event.target.value)}
+              aria-invalid={!!error}
+              aria-describedby={error ? "note-edit-content-error" : undefined}
               className="bg-muted/50"
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p id="note-edit-content-error" role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
         </div>
 
         <DialogFooter>
@@ -100,7 +106,10 @@ export function NoteFormDialog({
             className="h-12 w-full text-base"
           >
             {isSubmitting ? (
-              <Loader2 className="size-4 animate-spin" />
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                <span className="sr-only">Salvando...</span>
+              </>
             ) : (
               <Pencil className="size-4" />
             )}

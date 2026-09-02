@@ -77,9 +77,10 @@ export function PeriodRangeFilter({
       >
         <SelectTrigger
           size="default"
+          aria-label="Filtrar por período"
           className={cn("h-12 min-w-32", className)}
         >
-          <CalendarDays className="size-4 text-muted-foreground" />
+          <CalendarDays className="size-4 text-muted-foreground" aria-hidden="true" />
           <SelectValue />
         </SelectTrigger>
         <SelectContent align="end">
