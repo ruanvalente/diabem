@@ -55,16 +55,25 @@ export function NoteComposer({ onCreate }: NoteComposerProps) {
         placeholder="Escreva aqui suas observações…"
         value={content}
         onChange={(event) => setContent(event.target.value)}
+        aria-invalid={!!error}
+        aria-describedby={error ? "note-content-error" : undefined}
         className="bg-muted/50"
       />
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {error && (
+        <p id="note-content-error" role="alert" className="mt-2 text-sm text-destructive">
+          {error}
+        </p>
+      )}
       <Button
         onClick={() => void handleSave()}
         disabled={!canSave || isSubmitting}
         className="mt-3 h-12 w-full text-base"
       >
         {isSubmitting ? (
-          <Loader2 className="size-4 animate-spin" />
+          <>
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            <span className="sr-only">Salvando...</span>
+          </>
         ) : (
           <StickyNote className="size-4" />
         )}

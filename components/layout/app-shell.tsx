@@ -17,7 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <div className="lg:flex-1 lg:min-w-0">
         <AppHeader />
-        <main className="pb-20 lg:pb-0">{children}</main>
+        <main id="main-content" className="pb-20 lg:pb-0">{children}</main>
         <LocalDataIndicator />
       </div>
       <BottomNav />

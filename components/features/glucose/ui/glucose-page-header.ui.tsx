@@ -34,6 +34,7 @@ export function GlucosePageHeader({
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <OptionPills
+          aria-label="Filtrar por contexto"
           options={contextOptions}
           value={contextValue}
           onChange={onContextChange}

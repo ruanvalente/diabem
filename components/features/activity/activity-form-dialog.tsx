@@ -113,10 +113,14 @@ export function ActivityFormDialog({
 
         <div className="space-y-5">
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">
+            <label
+              id="activity-type-label"
+              className="mb-2 block text-sm font-medium text-foreground"
+            >
               Tipo de atividade
             </label>
             <OptionPills
+              aria-labelledby="activity-type-label"
               options={ACTIVITY_TYPE_ORDER.map((value) => ({
                 value,
                 label: ACTIVITY_TYPE_LABELS[value],
@@ -147,19 +151,25 @@ export function ActivityFormDialog({
                 placeholder="30"
                 value={duration}
                 onChange={(event) => setDuration(event.target.value)}
+                aria-invalid={!!error}
+                aria-describedby={error ? "activity-duration-error" : undefined}
                 className="h-12 bg-muted/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground" aria-hidden="true">
                 min
               </span>
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label
+              htmlFor="activity-notes"
+              className="mb-1.5 block text-sm font-medium text-foreground"
+            >
               Observação (opcional)
             </label>
             <Textarea
+              id="activity-notes"
               placeholder="Ex: No parque com amigos"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
@@ -167,7 +177,11 @@ export function ActivityFormDialog({
             />
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p id="activity-duration-error" role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
         </div>
 
         <DialogFooter>
@@ -177,7 +191,10 @@ export function ActivityFormDialog({
             className="h-12 w-full text-base"
           >
             {isSubmitting ? (
-              <Loader2 className="size-4 animate-spin" />
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                <span className="sr-only">Salvando...</span>
+              </>
             ) : isEditing ? (
               <Pencil className="size-4" />
             ) : (

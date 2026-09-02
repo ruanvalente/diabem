@@ -22,6 +22,7 @@ export function ConnectionStatus() {
       >
         <WifiOff className="size-3 text-warning" aria-hidden="true" />
         <span className="hidden sm:inline">Offline</span>
+        <span className="sr-only">Você está offline</span>
       </Badge>
     );
   }
@@ -35,6 +36,7 @@ export function ConnectionStatus() {
     >
       <Wifi className="size-3" aria-hidden="true" />
       <span className="hidden sm:inline">Online</span>
+      <span className="sr-only">Você está online</span>
     </Badge>
   );
 }
