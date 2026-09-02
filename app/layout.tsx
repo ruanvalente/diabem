@@ -37,7 +37,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f8f9ff" },
     { media: "(prefers-color-scheme: dark)", color: "#0b1c30" },
@@ -48,6 +47,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="pt-BR" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-lg"
+        >
+          Pular para o conteúdo
+        </a>
         <TooltipProvider>
           <AuthProvider>
             <PwaProvider>

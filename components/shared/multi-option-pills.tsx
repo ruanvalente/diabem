@@ -15,6 +15,7 @@ type MultiOptionPillsProps<T extends string> = {
   value: T[];
   onChange: (value: T[]) => void;
   className?: string;
+  "aria-label"?: string;
 };
 
 export function MultiOptionPills<T extends string>({
@@ -22,6 +23,7 @@ export function MultiOptionPills<T extends string>({
   value,
   onChange,
   className,
+  "aria-label": ariaLabel = "Filtrar por tipo",
 }: MultiOptionPillsProps<T>) {
   const allActive = value.length === 0;
 
@@ -43,7 +45,7 @@ export function MultiOptionPills<T extends string>({
   return (
     <div
       role="group"
-      aria-label="Filtrar por tipo"
+      aria-label={ariaLabel}
       className={cn("flex flex-wrap gap-2", className)}
     >
       {options.map((option) => {

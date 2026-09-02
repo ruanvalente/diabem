@@ -34,6 +34,7 @@ export function MealPageHeader({
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <OptionPills
+          aria-label="Filtrar por tipo de refeição"
           options={typeOptions}
           value={typeValue}
           onChange={onTypeChange}

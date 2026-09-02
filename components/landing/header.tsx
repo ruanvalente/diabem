@@ -1,3 +1,5 @@
+"use client";
+
 import { Heart } from "lucide-react";
 import Link from "next/link";
 
@@ -9,18 +11,25 @@ export function LandingHeader() {
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
             <Heart className="size-4 text-primary-foreground" />
           </div>
-          <span className="text-sm font-semibold text-foreground">
-            DiaBem
-          </span>
+          <span className="text-sm font-semibold text-foreground">DiaBem</span>
         </Link>
 
-        <nav className="hidden items-center gap-6 text-sm text-muted-foreground sm:flex">
-          <span className="cursor-pointer transition-colors hover:text-foreground">
+        <nav
+          aria-label="Navegação principal"
+          className="hidden items-center gap-6 text-sm text-muted-foreground sm:flex"
+        >
+          <Link
+            href="#funcionalidades"
+            className="transition-colors hover:text-foreground"
+          >
             Funcionalidades
-          </span>
-          <span className="cursor-pointer transition-colors hover:text-foreground">
+          </Link>
+          <Link
+            href="#privacidade"
+            className="transition-colors hover:text-foreground"
+          >
             Privacidade
-          </span>
+          </Link>
           <Link
             href="/login"
             className="cursor-pointer transition-colors hover:text-foreground"

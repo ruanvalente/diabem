@@ -36,8 +36,12 @@ export function PeriodFilter({
         if (next) onChange(next as PeriodFilterValue);
       }}
     >
-      <SelectTrigger size="default" className={cn("h-9 min-w-32", className)}>
-        <CalendarDays className="size-4 text-muted-foreground" />
+      <SelectTrigger
+        size="default"
+        aria-label="Filtrar por período"
+        className={cn("h-9 min-w-32", className)}
+      >
+        <CalendarDays className="size-4 text-muted-foreground" aria-hidden="true" />
         <SelectValue />
       </SelectTrigger>
       <SelectContent align="end">

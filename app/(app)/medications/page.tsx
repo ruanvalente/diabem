@@ -35,9 +35,9 @@ export default function MedicationsPage() {
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8">
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/dashboard">
+        <Link href="/dashboard" aria-label="Voltar ao dashboard">
           <Button variant="ghost" size="icon-sm">
-            <ArrowLeft className="size-4" />
+            <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
         </Link>
         <div>
@@ -54,10 +54,11 @@ export default function MedicationsPage() {
         {/* Medication Name */}
         <Card className="border-border shadow-(--shadow-card)]">
           <CardContent className="p-5">
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="medication" className="mb-1.5 block text-sm font-medium text-foreground">
               Medicamento
             </label>
             <Input
+              id="medication"
               placeholder="Ex: Metformina"
               value={medication}
               onChange={(e) => setMedication(e.target.value)}
@@ -71,10 +72,11 @@ export default function MedicationsPage() {
           <CardContent className="p-5">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
+                <label htmlFor="dose" className="mb-1.5 block text-sm font-medium text-foreground">
                   Dose
                 </label>
                 <Input
+                  id="dose"
                   type="number"
                   placeholder="850"
                   value={dose}
@@ -83,15 +85,16 @@ export default function MedicationsPage() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
+                <span className="mb-1.5 block text-sm font-medium text-foreground">
                   Unidade
-                </label>
-                <div className="flex gap-2">
+                </span>
+                <div className="flex gap-2" role="group" aria-label="Unidade de dosagem">
                   {dosageUnits.map((u) => (
                     <Button
                       key={u}
                       variant={unit === u ? "default" : "outline"}
                       size="sm"
+                      aria-pressed={unit === u}
                       onClick={() => setUnit(u)}
                       className={
                         unit === u ? "bg-primary text-primary-foreground" : ""
@@ -109,10 +112,11 @@ export default function MedicationsPage() {
         {/* Time */}
         <Card className="border-border shadow-(--shadow-card)]">
           <CardContent className="p-5">
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="time" className="mb-1.5 block text-sm font-medium text-foreground">
               Horário
             </label>
             <Input
+              id="time"
               type="time"
               defaultValue={timeStr}
               className="h-12 w-40 bg-muted/50"
@@ -123,15 +127,16 @@ export default function MedicationsPage() {
         {/* Type */}
         <Card className="border-border shadow-(--shadow-card)]">
           <CardContent className="p-5">
-            <label className="mb-3 block text-sm font-medium text-foreground">
+            <span className="mb-3 block text-sm font-medium text-foreground">
               Tipo
-            </label>
-            <div className="flex flex-wrap gap-2">
+            </span>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Tipo de medicação">
               {medicationTypes.map((t) => (
                 <Button
                   key={t}
                   variant={type === t ? "default" : "outline"}
                   size="sm"
+                  aria-pressed={type === t}
                   onClick={() => setType(t)}
                   className={
                     type === t ? "bg-primary text-primary-foreground" : ""
@@ -147,10 +152,11 @@ export default function MedicationsPage() {
         {/* Note */}
         <Card className="border-border shadow-(--shadow-card)]">
           <CardContent className="p-5">
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label htmlFor="note" className="mb-1.5 block text-sm font-medium text-foreground">
               Observação (opcional)
             </label>
             <Input
+              id="note"
               placeholder="Ex: Tomado após o café da manhã"
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -165,7 +171,10 @@ export default function MedicationsPage() {
           className="h-12 w-full text-base"
         >
           {isSaving ? (
-            <Loader2 className="size-4 animate-spin" />
+            <>
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              <span className="sr-only">Salvando...</span>
+            </>
           ) : saved ? (
             <>
               <Check className="size-4" />

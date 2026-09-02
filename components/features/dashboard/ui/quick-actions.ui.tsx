@@ -18,7 +18,7 @@ export function QuickActions({ actions }: QuickActionsProps) {
               <div
                 className={`flex size-10 items-center justify-center rounded-xl ${action.color} text-white`}
               >
-                <action.icon className="size-5" />
+                <action.icon className="size-5" aria-hidden="true" />
               </div>
               <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">
                 {action.label}

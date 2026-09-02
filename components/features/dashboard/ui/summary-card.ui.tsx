@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Plus, ChevronRight } from "lucide-react";
 import type { SummaryCard } from "../types";
 
@@ -29,15 +28,19 @@ export function SummaryCardItem({ card }: SummaryCardItemProps) {
           <p className="truncate text-xs text-muted-foreground">{card.last}</p>
         </div>
         <div className="flex items-center gap-1">
-          <Link href={card.href}>
-            <Button variant="ghost" size="icon-xs" aria-label="Adicionar">
-              <Plus className="size-3" />
-            </Button>
+          <Link
+            href={card.href}
+            aria-label={`Adicionar ${card.title}`}
+            className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <Plus className="size-3" aria-hidden="true" />
           </Link>
-          <Link href={card.href}>
-            <Button variant="ghost" size="icon-xs" aria-label="Ver histórico">
-              <ChevronRight className="size-3" />
-            </Button>
+          <Link
+            href={card.href}
+            aria-label={`Ver histórico de ${card.title}`}
+            className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <ChevronRight className="size-3" aria-hidden="true" />
           </Link>
         </div>
       </CardContent>

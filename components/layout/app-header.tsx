@@ -36,7 +36,11 @@ export function AppHeader() {
               />
             }
           >
-            <Menu className="size-5 hidden" />
+            <Menu
+              className="size-5 hidden"
+              aria-hidden="true"
+              aria-label="Ícone do Menu Hambúrguer"
+            />
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
             <Sidebar />
@@ -47,9 +51,17 @@ export function AppHeader() {
       <div className="flex items-center gap-2">
         <ConnectionStatus />
 
-        <Button variant="ghost" size="icon-sm" className="relative">
-          <Bell className="size-4" />
-          <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary" />
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="relative"
+          aria-label="Notificações"
+        >
+          <Bell className="size-4" aria-hidden="true" />
+          <span
+            className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary"
+            aria-hidden="true"
+          />
         </Button>
 
         <DropdownMenu>
@@ -58,7 +70,7 @@ export function AppHeader() {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Menu do usuario"
+                aria-label="Menu do usuário"
               />
             }
           >

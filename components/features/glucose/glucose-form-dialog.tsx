@@ -141,9 +141,10 @@ export function GlucoseFormDialog({
                 value={value}
                 onChange={(event) => setValue(event.target.value)}
                 aria-invalid={!!error}
+                aria-describedby={error ? "glucose-value-error" : undefined}
                 className="h-16 bg-muted/50 text-center text-3xl font-bold tracking-tight [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground" aria-hidden="true">
                 mg/dL
               </span>
             </div>
@@ -161,10 +162,14 @@ export function GlucoseFormDialog({
           />
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">
+            <label
+              id="glucose-context-label"
+              className="mb-2 block text-sm font-medium text-foreground"
+            >
               Contexto da medição
             </label>
             <OptionPills
+              aria-labelledby="glucose-context-label"
               options={GLUCOSE_CONTEXT_ORDER.map((value) => ({
                 value,
                 label: GLUCOSE_CONTEXT_LABELS[value],
@@ -175,10 +180,14 @@ export function GlucoseFormDialog({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
+            <label
+              htmlFor="glucose-notes"
+              className="mb-1.5 block text-sm font-medium text-foreground"
+            >
               Observação (opcional)
             </label>
             <Textarea
+              id="glucose-notes"
               placeholder="Ex: Após almoço leve"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
@@ -186,7 +195,11 @@ export function GlucoseFormDialog({
             />
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p id="glucose-value-error" role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
         </div>
 
         <DialogFooter>
@@ -196,7 +209,10 @@ export function GlucoseFormDialog({
             className="h-12 w-full text-base"
           >
             {isSubmitting ? (
-              <Loader2 className="size-4 animate-spin" />
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                <span className="sr-only">Salvando...</span>
+              </>
             ) : isEditing ? (
               <Pencil className="size-4" />
             ) : (

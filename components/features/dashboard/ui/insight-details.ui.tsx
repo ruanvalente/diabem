@@ -70,10 +70,12 @@ export function InsightDetails({ insight }: InsightDetailsProps) {
         </p>
 
         <DialogFooter>
-          <Link href="/timeline" className="w-full">
-            <Button variant="secondary" className="w-full" size="sm">
-              Ver registros relacionados
-            </Button>
+          <Link
+            href="/timeline"
+            aria-label="Ver registros relacionados ao padrão observado"
+            className="flex w-full items-center justify-center rounded-lg text-sm font-medium text-secondary-foreground shadow-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            Ver registros relacionados
           </Link>
         </DialogFooter>
       </DialogContent>

@@ -36,14 +36,14 @@ export function Sidebar() {
     <aside className="flex h-full w-64 flex-col overflow-y-auto border-r border-border bg-card">
       <div className="flex h-14 items-center gap-2 border-b border-border px-5">
         <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
-          <Heart className="size-4 text-primary-foreground" />
+          <Heart className="size-4 text-primary-foreground" aria-hidden="true" />
         </div>
         <span className="text-sm font-semibold text-foreground">
           DiaBem
         </span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav aria-label="Menu lateral" className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
@@ -51,6 +51,7 @@ export function Sidebar() {
               <li key={item.href + item.label}>
                 <Link
                   href={item.href}
+                  aria-current={isActive ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                     isActive
@@ -58,7 +59,7 @@ export function Sidebar() {
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
-                  <item.icon className="size-4 shrink-0" />
+                  <item.icon className="size-4 shrink-0" aria-hidden="true" />
                   {item.label}
                 </Link>
               </li>
