@@ -3,16 +3,6 @@
 import { Heart } from "lucide-react";
 import Link from "next/link";
 
-function scrollToSection(id: string) {
-  const el = document.getElementById(id);
-  if (el) {
-    const prefersReduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    el.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth", block: "start" });
-  }
-}
-
 export function LandingHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
@@ -28,20 +18,18 @@ export function LandingHeader() {
           aria-label="Navegação principal"
           className="hidden items-center gap-6 text-sm text-muted-foreground sm:flex"
         >
-          <button
-            type="button"
-            onClick={() => scrollToSection("funcionalidades")}
+          <Link
+            href="#funcionalidades"
             className="transition-colors hover:text-foreground"
           >
             Funcionalidades
-          </button>
-          <button
-            type="button"
-            onClick={() => scrollToSection("privacidade")}
+          </Link>
+          <Link
+            href="#privacidade"
             className="transition-colors hover:text-foreground"
           >
             Privacidade
-          </button>
+          </Link>
           <Link
             href="/login"
             className="cursor-pointer transition-colors hover:text-foreground"
