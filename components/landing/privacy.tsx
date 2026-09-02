@@ -36,7 +36,7 @@ const privacyItems = [
 
 export function Privacy() {
   return (
-    <section id="privacidade" className="bg-surface-lowest px-5 py-16 sm:px-8 sm:py-24">
+    <section id="privacidade" className="scroll-mt-16 bg-surface-lowest px-5 py-16 sm:px-8 sm:py-24">
       <div className="mx-auto max-w-5xl">
         <FadeIn className="mb-12 text-center">
           <h2 className="mb-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
