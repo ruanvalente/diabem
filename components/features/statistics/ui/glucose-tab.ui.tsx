@@ -9,6 +9,7 @@ import {
 import type { GlucoseStatistics } from "@/lib/analytics/statistics";
 import { GlucoseLineChart } from "@/components/features/dashboard/charts/glucose-line-chart";
 import { DistributionChart } from "@/components/features/dashboard/charts/distribution-chart";
+import { DistributionRow } from "./distribution-row.ui";
 import { EmptyState } from "@/components/shared/empty-state";
 
 type GlucoseTabProps = {
@@ -212,30 +213,4 @@ function StatCard({
   );
 }
 
-function DistributionRow({
-  label,
-  count,
-  total,
-}: {
-  label: string;
-  count: number;
-  total: number;
-}) {
-  const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium text-foreground">
-          {count} ({percentage}%)
-        </span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-    </div>
-  );
-}
+

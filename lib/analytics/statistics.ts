@@ -6,7 +6,7 @@ import {
   MEAL_TYPE_LABELS,
   ACTIVITY_TYPE_LABELS,
 } from "@/lib/health/constants";
-import { getGlucoseRange } from "@/lib/health/glucose-range";
+import { getGlucoseRange, GLUCOSE_RANGE_LABELS } from "@/lib/health/glucose-range";
 import { calculateBasicStats } from "@/lib/intelligence/analytics/statistics";
 import { calculateTrend } from "@/lib/intelligence/analytics/trend";
 import type {
@@ -95,19 +95,12 @@ function computeGlucoseRangeDistribution(
     counts.set(range, (counts.get(range) ?? 0) + 1);
   }
 
-  const labels: Record<string, string> = {
-    low: "Baixa",
-    in_range: "No intervalo",
-    high: "Alta",
-    very_high: "Muito alta",
-  };
-
   const total = readings.length;
   return (["low", "in_range", "high", "very_high"] as const)
     .filter((range) => (counts.get(range) ?? 0) > 0)
     .map((range) => ({
       range,
-      label: labels[range],
+      label: GLUCOSE_RANGE_LABELS[range],
       count: counts.get(range) ?? 0,
       percentage: Math.round(((counts.get(range) ?? 0) / total) * 100),
     }));

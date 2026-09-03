@@ -107,7 +107,7 @@ export function ActivityTab({ stats }: ActivityTabProps) {
                     <div
                       className="h-full rounded-full bg-warning transition-all"
                       style={{
-                        width: `${Math.round((item.totalMinutes / stats.totalMinutes) * 100)}%`,
+                        width: `${stats.totalMinutes > 0 ? Math.round((item.totalMinutes / stats.totalMinutes) * 100) : 0}%`,
                       }}
                     />
                   </div>
