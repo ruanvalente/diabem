@@ -24,6 +24,7 @@ export function useEntityRecords<T, F extends EntityFilter>(
   const [isLoading, setIsLoading] = useState(!!userId);
   const [error, setError] = useState<string | null>(null);
   const filterRef = useRef<F>(defaultFilter ?? ({} as F));
+  const requestSeqRef = useRef(0);
 
   const reload = useCallback(async () => {
     if (!userId) {
@@ -34,7 +35,10 @@ export function useEntityRecords<T, F extends EntityFilter>(
     }
 
     setIsLoading(true);
+    const requestId = ++requestSeqRef.current;
     const result = await loader(userId, filterRef.current);
+    if (requestId !== requestSeqRef.current) return;
+
     setIsLoading(false);
 
     if (result.ok) {
