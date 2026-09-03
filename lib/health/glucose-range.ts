@@ -22,7 +22,7 @@ export function getGlucoseRange(value: number): GlucoseRange {
   return "very_high";
 }
 
-const LABELS: Record<GlucoseRange, string> = {
+export const GLUCOSE_RANGE_LABELS: Record<GlucoseRange, string> = {
   low: "Baixa",
   in_range: "No intervalo",
   high: "Alta",
@@ -32,24 +32,24 @@ const LABELS: Record<GlucoseRange, string> = {
 const INFO: Record<GlucoseRange, GlucoseRangeInfo> = {
   low: {
     range: "low",
-    label: LABELS.low,
+    label: GLUCOSE_RANGE_LABELS.low,
     badgeVariant: "destructive",
   },
   in_range: {
     range: "in_range",
-    label: LABELS.in_range,
+    label: GLUCOSE_RANGE_LABELS.in_range,
     badgeVariant: "default",
     badgeClassName: "border-success/30 bg-success/10 text-success",
   },
   high: {
     range: "high",
-    label: LABELS.high,
+    label: GLUCOSE_RANGE_LABELS.high,
     badgeVariant: "secondary",
     badgeClassName: "border-warning/30 bg-warning/10 text-warning",
   },
   very_high: {
     range: "very_high",
-    label: LABELS.very_high,
+    label: GLUCOSE_RANGE_LABELS.very_high,
     badgeVariant: "destructive",
   },
 };
