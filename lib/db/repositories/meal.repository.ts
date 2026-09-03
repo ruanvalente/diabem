@@ -56,15 +56,16 @@ async function decryptRecord(stored: StoredMeal): Promise<Meal> {
 }
 
 async function create(
-  data: Omit<Meal, "id" | "createdAt" | "updatedAt">
+  data: Omit<Meal, "id" | "createdAt" | "updatedAt">,
+  timestamps?: { createdAt?: string; updatedAt?: string }
 ): Promise<Meal> {
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
   const record: Meal = {
     ...data,
     id,
-    createdAt: now,
-    updatedAt: now,
+    createdAt: timestamps?.createdAt ?? now,
+    updatedAt: timestamps?.updatedAt ?? timestamps?.createdAt ?? now,
   };
   await getTable().add(await encryptRecord(record));
   return record;

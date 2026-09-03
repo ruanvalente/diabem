@@ -51,15 +51,16 @@ async function decryptRecord(
 }
 
 async function create(
-  data: Omit<GlucoseReading, "id" | "createdAt" | "updatedAt">
+  data: Omit<GlucoseReading, "id" | "createdAt" | "updatedAt">,
+  timestamps?: { createdAt?: string; updatedAt?: string }
 ): Promise<GlucoseReading> {
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
   const record: GlucoseReading = {
     ...data,
     id,
-    createdAt: now,
-    updatedAt: now,
+    createdAt: timestamps?.createdAt ?? now,
+    updatedAt: timestamps?.updatedAt ?? timestamps?.createdAt ?? now,
   };
   await getTable().add(await encryptRecord(record));
   return record;
