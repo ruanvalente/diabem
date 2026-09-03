@@ -35,7 +35,7 @@ export function UpdateBanner() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-20 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 items-center gap-3 rounded-2xl border bg-card p-3 shadow-elevated lg:bottom-6"
+      className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 items-center gap-3 rounded-2xl border bg-card p-3 shadow-elevated lg:bottom-6"
     >
       <div className="flex-1">
         <p className="text-sm font-medium text-foreground">
