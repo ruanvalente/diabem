@@ -1,4 +1,4 @@
-import { describe, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let postedResponses: unknown[] = [];
 let onmessageFn: ((event: { data: unknown }) => void) | null = null;
@@ -10,12 +10,11 @@ const postMessageSpy: PostMessage = (msg) => {
 };
 
 // Minimal Web Worker `self` shim so the intelligence worker can be exercised
-// in the Node test environment.
+// in the Node test environment. Uses vi.stubGlobal (Object.defineProperty) so
+// it works even when `globalThis.self` is read-only or already defined.
 
-beforeEach(() => {
-  postedResponses = [];
-  onmessageFn = null;
-  (globalThis as { self: unknown }).self = {
+function stubSelf() {
+  vi.stubGlobal("self", {
     get onmessage() {
       return onmessageFn;
     },
@@ -23,7 +22,17 @@ beforeEach(() => {
       onmessageFn = fn;
     },
     postMessage: postMessageSpy,
-  };
+  });
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+beforeEach(() => {
+  postedResponses = [];
+  onmessageFn = null;
+  stubSelf();
 });
 
 function send(message: unknown) {

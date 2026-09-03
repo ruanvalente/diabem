@@ -1,7 +1,6 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   User,
@@ -11,10 +10,8 @@ import {
   Shield,
   ChevronRight,
   Smartphone,
-  Download,
-  Trash2,
-  Lock,
 } from "lucide-react";
+import { DataOwnershipSection } from "@/components/features/data-ownership/widget/data-ownership-section.widget";
 
 const settingsSections = [
   {
@@ -82,7 +79,7 @@ export default function SettingsPage() {
         {settingsSections.map((section) => (
           <Card
             key={section.title}
-            className="border-border shadow-(--shadow-card)]"
+            className="border-border shadow-[var(--shadow-card)]"
           >
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -111,38 +108,7 @@ export default function SettingsPage() {
           </Card>
         ))}
 
-        {/* Data Management */}
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Shield className="size-4 text-primary" />
-              Gerenciamento de dados
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 lg:space-y-2 p-4">
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2 px-6 py-4 hover:cursor-pointer"
-            >
-              <Download className="size-4" />
-              Exportar meus dados
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2 px-6 py-4 hover:cursor-pointer"
-            >
-              <Lock className="size-4" />
-              Bloquear aplicação
-            </Button>
-            <Button
-              variant="destructive"
-              className="w-full justify-start gap-2 px-6 py-4 hover:cursor-pointer"
-            >
-              <Trash2 className="size-4" />
-              Apagar todos os dados
-            </Button>
-          </CardContent>
-        </Card>
+        <DataOwnershipSection />
       </div>
     </div>
   );
