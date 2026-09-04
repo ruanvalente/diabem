@@ -16,11 +16,13 @@ import { OptionPills } from "@/components/shared/option-pills";
 import { DateTimeInput } from "@/components/shared/date-time-input";
 import { toast } from "@/components/ui/toast";
 import { getGlucoseRangeInfo } from "@/lib/health/glucose-range";
-import { GLUCOSE_CONTEXT_LABELS, GLUCOSE_CONTEXT_ORDER } from "@/lib/health/constants";
+import {
+  GLUCOSE_CONTEXT_LABELS,
+  GLUCOSE_CONTEXT_ORDER,
+} from "@/lib/health/constants";
 import { glucoseReadingSchema } from "@/lib/db/schema";
 import { toDateTimeLocalValue } from "@/lib/date";
-import { speechRecognitionSupported } from "@/lib/browser/capabilities/speech-recognition";
-import { VoiceInputButton } from "@/components/features/voice-input/ui/voice-input-button.ui";
+import { VoiceInputWidget } from "@/components/features/voice-input/widget/voice-input.widget";
 import type { GlucoseReading } from "@/lib/db/types";
 import type { SaveGlucoseInput, ServiceResult } from "@/lib/health/types";
 import { Loader2, Droplets, Pencil } from "lucide-react";
@@ -36,7 +38,7 @@ type GlucoseFormDialogProps = {
   record?: GlucoseReading | null;
   onSubmit: (
     input: SaveGlucoseInput,
-    record?: GlucoseReading
+    record?: GlucoseReading,
   ) => Promise<ServiceResult<GlucoseReading>>;
 };
 
@@ -51,15 +53,15 @@ export function GlucoseFormDialog({
   // State is seeded during mount; the page remounts this dialog (via `key`)
   // every time it is opened so the form always starts fresh.
   const [value, setValue] = useState(() =>
-    record ? String(record.value) : ""
+    record ? String(record.value) : "",
   );
   const [context, setContext] = useState<GlucoseReading["context"] | undefined>(
-    record?.context
+    record?.context,
   );
   const [measuredAtLocal, setMeasuredAtLocal] = useState(() =>
     record
       ? toDateTimeLocalValue(new Date(record.measuredAt))
-      : toDateTimeLocalValue(new Date())
+      : toDateTimeLocalValue(new Date()),
   );
   const [notes, setNotes] = useState(record?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +101,7 @@ export function GlucoseFormDialog({
         measuredAtLocal,
         notes: validation.data.notes,
       },
-      record ?? undefined
+      record ?? undefined,
     );
     setIsSubmitting(false);
 
@@ -153,7 +155,10 @@ export function GlucoseFormDialog({
                 aria-describedby={error ? "glucose-value-error" : undefined}
                 className="h-16 bg-muted/50 text-center text-3xl font-bold tracking-tight [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground" aria-hidden="true">
+              <span
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+                aria-hidden="true"
+              >
                 mg/dL
               </span>
             </div>
@@ -200,20 +205,20 @@ export function GlucoseFormDialog({
               placeholder="Ex: Após almoço leve"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              className="bg-muted/50"
+              className="my-2 lg:my-4 bg-muted/50"
             />
-            {speechRecognitionSupported() && (
-              <div className="mt-2">
-                <VoiceInputButton
-                  label="Falar observação"
-                  onTranscript={handleNotesTranscript}
-                />
-              </div>
-            )}
+            <VoiceInputWidget
+              label="Falar observação"
+              onTranscript={handleNotesTranscript}
+            />
           </div>
 
           {error && (
-            <p id="glucose-value-error" role="alert" className="text-sm text-destructive">
+            <p
+              id="glucose-value-error"
+              role="alert"
+              className="text-sm text-destructive"
+            >
               {error}
             </p>
           )}

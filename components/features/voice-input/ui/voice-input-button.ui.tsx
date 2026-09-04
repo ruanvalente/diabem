@@ -1,70 +1,61 @@
-"use client";
-
 import { AlertCircle, Loader2, Mic, Square } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
-import { useSpeechRecognition } from "@/lib/browser/hooks/use-speech-recognition";
+import type { SpeechRecognitionState } from "@/lib/browser/services/speech-recognition.service";
 
 type VoiceInputButtonProps = {
-  onTranscript: (text: string) => void;
+  state: SpeechRecognitionState;
+  isRecording: boolean;
+  hasTranscript: boolean;
+  hasError: boolean;
+  transcript: string;
   label: string;
+  onToggleRecording: () => void;
+  onUseText: () => void;
+  onDiscard: () => void;
+  onRetry: () => void;
 };
 
+function getAriaLabel(
+  hasError: boolean,
+  isRecording: boolean,
+  label: string,
+): string {
+  if (hasError) return "Erro ao gravar áudio, clique para tentar novamente";
+  if (isRecording) return "Gravando áudio, clique para parar";
+  return label;
+}
+
+function getButtonLabel(
+  state: SpeechRecognitionState,
+  isRecording: boolean,
+  hasError: boolean,
+  label: string,
+): string {
+  if (hasError) return "Tente novamente";
+  if (state === "starting") return "Iniciando...";
+  if (state === "processing") return "Processando...";
+  if (isRecording) return "Gravando...";
+  return label;
+}
+
 export function VoiceInputButton({
-  onTranscript,
+  state,
+  isRecording,
+  hasTranscript,
+  hasError,
+  transcript,
   label,
+  onToggleRecording,
+  onUseText,
+  onDiscard,
+  onRetry,
 }: VoiceInputButtonProps) {
-  const {
-    state,
-    supported,
-    transcript,
-    isListening,
-    start,
-    stop,
-    abort,
-    reset,
-  } = useSpeechRecognition();
-
-  if (!supported) return null;
-
-  const isRecording = isListening || state === "processing";
-  const hasTranscript = transcript.trim() !== "" && !isRecording;
-  const hasError = state === "error";
-
-  const handleToggleRecording = () => {
-    if (isRecording) {
-      stop();
-    } else {
-      start();
-    }
-  };
-
-  const handleUseText = () => {
-    onTranscript(transcript);
-    reset();
-  };
-
-  const handleDiscard = () => {
-    reset();
-  };
-
-  const handleRetry = () => {
-    reset();
-    start();
-  };
-
-  const getAriaLabel = () => {
-    if (hasError) return "Erro ao gravar áudio, clique para tentar novamente";
-    if (isRecording) return "Gravando áudio, clique para parar";
-    return label;
-  };
-
   return (
     <div className="flex flex-col gap-2">
       <Button
         variant={isRecording ? "destructive" : "default"}
-        onClick={hasError ? handleRetry : handleToggleRecording}
-        aria-label={getAriaLabel()}
+        onClick={hasError ? onRetry : onToggleRecording}
+        aria-label={getAriaLabel(hasError, isRecording, label)}
         aria-pressed={isRecording}
         className="h-12 w-full gap-2 text-base"
       >
@@ -75,15 +66,7 @@ export function VoiceInputButton({
         ) : (
           <Mic className="size-4" aria-hidden="true" />
         )}
-        {hasError
-          ? "Tente novamente"
-          : state === "starting"
-            ? "Iniciando..."
-            : state === "processing"
-              ? "Processando..."
-              : isRecording
-                ? "Gravando..."
-                : label}
+        {getButtonLabel(state, isRecording, hasError, label)}
         {(state === "starting" || state === "processing") && (
           <Loader2 className="size-4 animate-spin" aria-hidden="true" />
         )}
@@ -114,7 +97,7 @@ export function VoiceInputButton({
             <Button
               variant="default"
               size="sm"
-              onClick={handleUseText}
+              onClick={onUseText}
               aria-label="Usar texto reconhecido"
               className="h-9 flex-1"
             >
@@ -123,7 +106,7 @@ export function VoiceInputButton({
             <Button
               variant="outline"
               size="sm"
-              onClick={handleDiscard}
+              onClick={onDiscard}
               aria-label="Descartar texto reconhecido"
               className="h-9 flex-1"
             >

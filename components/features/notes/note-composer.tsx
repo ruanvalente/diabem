@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { noteSchema } from "@/lib/db/schema";
-import { speechRecognitionSupported } from "@/lib/browser/capabilities/speech-recognition";
-import { VoiceInputButton } from "@/components/features/voice-input/ui/voice-input-button.ui";
+import { VoiceInputWidget } from "@/components/features/voice-input/widget/voice-input.widget";
 import type { SaveNoteInput, ServiceResult } from "@/lib/health/types";
 import { Loader2, StickyNote } from "lucide-react";
 
@@ -20,7 +19,6 @@ export function NoteComposer({ onCreate }: NoteComposerProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canSave = content.trim() !== "";
-  const showVoice = speechRecognitionSupported();
 
   const handleSave = async () => {
     const validation = noteSchema.safeParse({ content });
@@ -36,7 +34,10 @@ export function NoteComposer({ onCreate }: NoteComposerProps) {
     if (result.ok) {
       setContent("");
       setError(null);
-      toast.add({ title: "Observação salva neste dispositivo.", type: "success" });
+      toast.add({
+        title: "Observação salva neste dispositivo.",
+        type: "success",
+      });
     } else {
       toast.add({ title: result.error, type: "error" });
     }
@@ -67,18 +68,18 @@ export function NoteComposer({ onCreate }: NoteComposerProps) {
         onChange={(event) => setContent(event.target.value)}
         aria-invalid={!!error}
         aria-describedby={error ? "note-content-error" : undefined}
-        className="bg-muted/50"
+        className="my-2 lg:my-4 bg-muted/50"
       />
-      {showVoice && (
-        <div className="mt-2">
-          <VoiceInputButton
-            label="Falar observação"
-            onTranscript={handleTranscript}
-          />
-        </div>
-      )}
+      <VoiceInputWidget
+        label="Falar observação"
+        onTranscript={handleTranscript}
+      />
       {error && (
-        <p id="note-content-error" role="alert" className="mt-2 text-sm text-destructive">
+        <p
+          id="note-content-error"
+          role="alert"
+          className="mt-2 text-sm text-destructive"
+        >
           {error}
         </p>
       )}
