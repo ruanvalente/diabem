@@ -34,7 +34,8 @@ export function ImportDataDialog({
 }: ImportDataDialogProps) {
   const [state, setState] = useState<ImportState>("idle");
   const [preview, setPreview] = useState<ImportPreview | null>(null);
-  const [normalizedData, setNormalizedData] = useState<NormalizedImportData | null>(null);
+  const [normalizedData, setNormalizedData] =
+    useState<NormalizedImportData | null>(null);
   const [isPending, setIsPending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -48,7 +49,7 @@ export function ImportDataDialog({
 
   const handleClose = (openState: boolean) => {
     if (!openState) {
-      if (state === "importing") return; // prevent closing mid-import
+      if (state === "importing") return;
       reset();
     }
     onOpenChange(openState);
@@ -72,13 +73,29 @@ export function ImportDataDialog({
         return;
       }
 
+      const totalRecords =
+        prepared.normalizedData.glucose.length +
+        prepared.normalizedData.meals.length +
+        prepared.normalizedData.activities.length +
+        prepared.normalizedData.notes.length;
+
+      if (totalRecords === 0) {
+        const firstError = prepared.validationErrors[0]?.message;
+        toast.add({
+          title: firstError ?? "Nenhum registro válido encontrado no arquivo.",
+          type: "error",
+        });
+        setState("error");
+        return;
+      }
+
       setNormalizedData(prepared.normalizedData);
 
       const previewData = await dataOwnershipService.buildPreview(
         userId,
         prepared.fileName,
         prepared.fileKind,
-        prepared.normalizedData
+        prepared.normalizedData,
       );
       setPreview(previewData);
       setState("preview");
@@ -104,7 +121,7 @@ export function ImportDataDialog({
     try {
       const result = await dataOwnershipService.importUserData(
         userId,
-        normalizedData
+        normalizedData,
       );
       toast.add({
         title: "Importação concluída.",
@@ -135,11 +152,12 @@ export function ImportDataDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md lg:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Importar dados</DialogTitle>
           <DialogDescription>
-            Seus dados ficam armazenados neste dispositivo. Selecione um arquivo JSON ou CSV exportado do DiaBem.
+            Seus dados ficam armazenados neste dispositivo. Selecione um arquivo
+            JSON ou CSV exportado do DiaBem.
           </DialogDescription>
         </DialogHeader>
 
@@ -166,7 +184,11 @@ export function ImportDataDialog({
           ) : null}
 
           {state === "reading" || (state === "validating" && isPending) ? (
-            <div className="flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-muted/30 p-6 text-center" role="status" aria-live="polite">
+            <div
+              className="flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-muted/30 p-6 text-center"
+              role="status"
+              aria-live="polite"
+            >
               <Loader2 className="size-6 animate-spin text-primary" />
               <p className="text-sm text-foreground">Validando arquivo...</p>
             </div>
@@ -181,7 +203,9 @@ export function ImportDataDialog({
                 <dl className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Arquivo</dt>
-                    <dd className="font-medium text-foreground">{preview.fileName}</dd>
+                    <dd className="font-medium text-foreground">
+                      {preview.fileName}
+                    </dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Tipo</dt>
@@ -207,8 +231,12 @@ export function ImportDataDialog({
                   </div>
                   <div className="my-2 h-px bg-border" />
                   <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Total de registros</dt>
-                    <dd className="font-medium text-foreground">{totalCount}</dd>
+                    <dt className="text-muted-foreground">
+                      Total de registros
+                    </dt>
+                    <dd className="font-medium text-foreground">
+                      {totalCount}
+                    </dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Duplicados</dt>
@@ -230,14 +258,22 @@ export function ImportDataDialog({
           ) : null}
 
           {state === "importing" ? (
-            <div className="flex min-h-24 flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-muted/30 p-6 text-center" role="status" aria-live="polite">
+            <div
+              className="flex min-h-24 flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-muted/30 p-6 text-center"
+              role="status"
+              aria-live="polite"
+            >
               <Loader2 className="size-6 animate-spin text-primary" />
               <p className="text-sm text-foreground">Importando...</p>
             </div>
           ) : null}
 
           {state === "success" ? (
-            <div className="flex min-h-24 flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-muted/30 p-6 text-center" role="status" aria-live="polite">
+            <div
+              className="flex min-h-24 flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-muted/30 p-6 text-center"
+              role="status"
+              aria-live="polite"
+            >
               <CheckCircle2 className="size-8 text-green-600" />
               <p className="text-sm font-medium text-foreground">
                 Importação concluída.
