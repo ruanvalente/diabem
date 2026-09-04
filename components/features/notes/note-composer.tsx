@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { noteSchema } from "@/lib/db/schema";
+import { speechRecognitionSupported } from "@/lib/browser/capabilities/speech-recognition";
+import { VoiceInputButton } from "@/components/features/voice-input/ui/voice-input-button.ui";
 import type { SaveNoteInput, ServiceResult } from "@/lib/health/types";
 import { Loader2, StickyNote } from "lucide-react";
 
@@ -18,6 +20,7 @@ export function NoteComposer({ onCreate }: NoteComposerProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canSave = content.trim() !== "";
+  const showVoice = speechRecognitionSupported();
 
   const handleSave = async () => {
     const validation = noteSchema.safeParse({ content });
@@ -39,6 +42,13 @@ export function NoteComposer({ onCreate }: NoteComposerProps) {
     }
   };
 
+  const handleTranscript = useCallback((text: string) => {
+    setContent((prev) => {
+      if (prev.trim() === "") return text;
+      return `${prev.trim()} ${text.trim()}`.trim();
+    });
+  }, []);
+
   return (
     <section
       aria-label="Nova observação"
@@ -59,6 +69,14 @@ export function NoteComposer({ onCreate }: NoteComposerProps) {
         aria-describedby={error ? "note-content-error" : undefined}
         className="bg-muted/50"
       />
+      {showVoice && (
+        <div className="mt-2">
+          <VoiceInputButton
+            label="Falar observação"
+            onTranscript={handleTranscript}
+          />
+        </div>
+      )}
       {error && (
         <p id="note-content-error" role="alert" className="mt-2 text-sm text-destructive">
           {error}
