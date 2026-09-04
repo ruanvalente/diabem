@@ -1,0 +1,1 @@
+export { reminderService, type Reminder } from "./reminder.service";

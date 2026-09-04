@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,8 @@ import { toast } from "@/components/ui/toast";
 import { ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_ORDER } from "@/lib/health/constants";
 import { activitySchema } from "@/lib/db/schema";
 import { toDateTimeLocalValue } from "@/lib/date";
+import { speechRecognitionSupported } from "@/lib/browser/capabilities/speech-recognition";
+import { VoiceInputButton } from "@/components/features/voice-input/ui/voice-input-button.ui";
 import type { Activity } from "@/lib/db/types";
 import type { SaveActivityInput, ServiceResult } from "@/lib/health/types";
 import { Activity as ActivityIcon, Loader2, Pencil } from "lucide-react";
@@ -59,6 +61,13 @@ export function ActivityFormDialog({
   const [notes, setNotes] = useState(record?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleNotesTranscript = useCallback((text: string) => {
+    setNotes((prev) => {
+      if (prev.trim() === "") return text;
+      return `${prev.trim()} ${text.trim()}`.trim();
+    });
+  }, []);
 
   const handleSubmit = async () => {
     const numericDuration = duration === "" ? undefined : Number(duration);
@@ -175,6 +184,14 @@ export function ActivityFormDialog({
               onChange={(event) => setNotes(event.target.value)}
               className="bg-muted/50"
             />
+            {speechRecognitionSupported() && (
+              <div className="mt-2">
+                <VoiceInputButton
+                  label="Falar observação"
+                  onTranscript={handleNotesTranscript}
+                />
+              </div>
+            )}
           </div>
 
           {error && (

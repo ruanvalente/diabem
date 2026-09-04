@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,8 @@ import { getGlucoseRangeInfo } from "@/lib/health/glucose-range";
 import { GLUCOSE_CONTEXT_LABELS, GLUCOSE_CONTEXT_ORDER } from "@/lib/health/constants";
 import { glucoseReadingSchema } from "@/lib/db/schema";
 import { toDateTimeLocalValue } from "@/lib/date";
+import { speechRecognitionSupported } from "@/lib/browser/capabilities/speech-recognition";
+import { VoiceInputButton } from "@/components/features/voice-input/ui/voice-input-button.ui";
 import type { GlucoseReading } from "@/lib/db/types";
 import type { SaveGlucoseInput, ServiceResult } from "@/lib/health/types";
 import { Loader2, Droplets, Pencil } from "lucide-react";
@@ -62,6 +64,13 @@ export function GlucoseFormDialog({
   const [notes, setNotes] = useState(record?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleNotesTranscript = useCallback((text: string) => {
+    setNotes((prev) => {
+      if (prev.trim() === "") return text;
+      return `${prev.trim()} ${text.trim()}`.trim();
+    });
+  }, []);
 
   const numericValue = value === "" ? undefined : Number(value);
   const rangeInfo =
@@ -193,6 +202,14 @@ export function GlucoseFormDialog({
               onChange={(event) => setNotes(event.target.value)}
               className="bg-muted/50"
             />
+            {speechRecognitionSupported() && (
+              <div className="mt-2">
+                <VoiceInputButton
+                  label="Falar observação"
+                  onTranscript={handleNotesTranscript}
+                />
+              </div>
+            )}
           </div>
 
           {error && (
