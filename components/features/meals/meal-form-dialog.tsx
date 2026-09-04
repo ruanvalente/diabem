@@ -18,8 +18,7 @@ import { toast } from "@/components/ui/toast";
 import { MEAL_TYPE_LABELS, MEAL_TYPE_ORDER } from "@/lib/health/constants";
 import { mealSchema } from "@/lib/db/schema";
 import { toDateTimeLocalValue } from "@/lib/date";
-import { speechRecognitionSupported } from "@/lib/browser/capabilities/speech-recognition";
-import { VoiceInputButton } from "@/components/features/voice-input/ui/voice-input-button.ui";
+import { VoiceInputWidget } from "@/components/features/voice-input/widget/voice-input.widget";
 import type { Meal } from "@/lib/db/types";
 import type { SaveMealInput, ServiceResult } from "@/lib/health/types";
 import { Apple, Loader2, Pencil } from "lucide-react";
@@ -35,7 +34,7 @@ type MealFormDialogProps = {
   record?: Meal | null;
   onSubmit: (
     input: SaveMealInput,
-    record?: Meal
+    record?: Meal,
   ) => Promise<ServiceResult<Meal>>;
 };
 
@@ -50,13 +49,11 @@ export function MealFormDialog({
   // State is seeded during mount; the page remounts this dialog (via `key`)
   // every time it is opened so the form always starts fresh.
   const [type, setType] = useState<Meal["type"] | undefined>(record?.type);
-  const [description, setDescription] = useState(
-    record?.description ?? ""
-  );
+  const [description, setDescription] = useState(record?.description ?? "");
   const [consumedAtLocal, setConsumedAtLocal] = useState(() =>
     record
       ? toDateTimeLocalValue(new Date(record.consumedAt))
-      : toDateTimeLocalValue(new Date())
+      : toDateTimeLocalValue(new Date()),
   );
   const [notes, setNotes] = useState(record?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -90,7 +87,7 @@ export function MealFormDialog({
         consumedAtLocal,
         notes: validation.data.notes,
       },
-      record ?? undefined
+      record ?? undefined,
     );
     setIsSubmitting(false);
 
@@ -174,20 +171,20 @@ export function MealFormDialog({
               placeholder="Ex: Refeição leve"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              className="bg-muted/50"
+              className="my-2 lg:my-4 bg-muted/50"
             />
-            {speechRecognitionSupported() && (
-              <div className="mt-2">
-                <VoiceInputButton
-                  label="Falar observação"
-                  onTranscript={handleNotesTranscript}
-                />
-              </div>
-            )}
+            <VoiceInputWidget
+              label="Falar observação"
+              onTranscript={handleNotesTranscript}
+            />
           </div>
 
           {error && (
-            <p id="meal-description-error" role="alert" className="text-sm text-destructive">
+            <p
+              id="meal-description-error"
+              role="alert"
+              className="text-sm text-destructive"
+            >
               {error}
             </p>
           )}
