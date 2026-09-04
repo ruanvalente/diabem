@@ -452,10 +452,36 @@ describe("Data Ownership — Import", () => {
       ].join("\n");
       const result = parseCsvImport(csv);
 
-      if (!result.ok) {
-        expect(result.errors.length).toBeGreaterThan(0);
-      }
+      expect(result.ok).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
       expect(result.errors[0].message).toContain("inválido");
+    });
+
+    it("returns ok:false when all rows fail validation", () => {
+      const csv = [
+        "id,timestamp,value,unit,context,notes,createdAt,updatedAt",
+        "g1,2026-09-01T08:00:00Z,abc,mg/dL,fasting,,",
+        "g2,2026-09-01T09:00:00Z,xyz,mg/dL,fasting,,",
+      ].join("\n");
+      const result = parseCsvImport(csv);
+
+      expect(result.ok).toBe(false);
+      expect(result.errors.length).toBe(2);
+    });
+
+    it("returns ok:true when at least one row is valid", () => {
+      const csv = [
+        "id,timestamp,value,unit,context,notes,createdAt,updatedAt",
+        "g1,2026-09-01T08:00:00Z,abc,mg/dL,fasting,,",
+        "g2,2026-09-01T09:00:00Z,120,mg/dL,fasting,,",
+      ].join("\n");
+      const result = parseCsvImport(csv);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.glucose.length).toBe(1);
+        expect(result.errors.length).toBe(1);
+      }
     });
   });
 
@@ -486,6 +512,27 @@ describe("Data Ownership — Import", () => {
       const errors = validateFile(big);
       expect(errors.length).toBe(1);
       expect(errors[0].message).toContain("muito grande");
+    });
+  });
+
+  describe("parseFileContent", () => {
+    it("returns empty data and errors when CSV has no valid rows", () => {
+      const csv = [
+        "id,timestamp,value,unit,context,notes,createdAt,updatedAt",
+        "g1,2026-09-01T08:00:00Z,abc,mg/dL,fasting,,",
+      ].join("\n");
+      const result = parseFileContent(csv, "csv");
+
+      expect(result.data.glucose.length).toBe(0);
+      expect(result.errors.length).toBe(1);
+      expect(result.errors[0].message).toContain("inválido");
+    });
+
+    it("returns empty data when JSON has invalid structure", () => {
+      const result = parseFileContent('{"version":1}', "json");
+
+      expect(result.data.glucose.length).toBe(0);
+      expect(result.errors.length).toBeGreaterThan(0);
     });
   });
 
@@ -655,7 +702,6 @@ describe("Data Ownership — Round-trip", () => {
     it("export → import preserves glucose data", async () => {
       await seedGlucose();
 
-      // Export glucose CSV
       const options: ExportOptions = {
         format: "csv",
         scope: { glucose: true, meals: false, activities: false, notes: false },
@@ -663,10 +709,8 @@ describe("Data Ownership — Round-trip", () => {
       const files = await exportAsCsv(TEST_USER_ID, options);
       expect(files.length).toBe(1);
 
-      // Clear
       await deleteUserHealthData(TEST_USER_ID);
 
-      // Parse and import
       const prepared = await dataOwnershipService.prepareImport(
         new File([files[0].content], files[0].fileName, { type: files[0].mimeType })
       );
@@ -678,9 +722,135 @@ describe("Data Ownership — Round-trip", () => {
       );
       expect(result.totalImported).toBe(3);
 
-      // Verify
       const restored = await glucoseRepository.findByUser(TEST_USER_ID);
       expect(restored.length).toBe(3);
+    });
+
+    it("export → import preserves meals data", async () => {
+      await seedMeals();
+
+      const options: ExportOptions = {
+        format: "csv",
+        scope: { glucose: false, meals: true, activities: false, notes: false },
+      };
+      const files = await exportAsCsv(TEST_USER_ID, options);
+      expect(files.length).toBe(1);
+
+      await deleteUserHealthData(TEST_USER_ID);
+
+      const prepared = await dataOwnershipService.prepareImport(
+        new File([files[0].content], files[0].fileName, { type: files[0].mimeType })
+      );
+      expect(prepared.fileKind).toBe("csv");
+
+      const result = await dataOwnershipService.importUserData(
+        TEST_USER_ID,
+        prepared.normalizedData
+      );
+      expect(result.totalImported).toBe(2);
+
+      const restored = await mealRepository.findByUser(TEST_USER_ID);
+      expect(restored.length).toBe(2);
+      const descriptions = restored.map((m) => m.description);
+      expect(descriptions).toContain("Pão com ovo");
+      expect(descriptions).toContain("Arroz, feijão e frango");
+    });
+
+    it("export → import preserves activities data", async () => {
+      await seedActivities();
+
+      const options: ExportOptions = {
+        format: "csv",
+        scope: { glucose: false, meals: false, activities: true, notes: false },
+      };
+      const files = await exportAsCsv(TEST_USER_ID, options);
+      expect(files.length).toBe(1);
+
+      await deleteUserHealthData(TEST_USER_ID);
+
+      const prepared = await dataOwnershipService.prepareImport(
+        new File([files[0].content], files[0].fileName, { type: files[0].mimeType })
+      );
+      expect(prepared.fileKind).toBe("csv");
+
+      const result = await dataOwnershipService.importUserData(
+        TEST_USER_ID,
+        prepared.normalizedData
+      );
+      expect(result.totalImported).toBe(2);
+
+      const restored = await activityRepository.findByUser(TEST_USER_ID);
+      expect(restored.length).toBe(2);
+      const types = restored.map((a) => a.type);
+      expect(types).toContain("walking");
+      expect(types).toContain("cycling");
+    });
+
+    it("export → import preserves notes data", async () => {
+      await seedNotes();
+
+      const options: ExportOptions = {
+        format: "csv",
+        scope: { glucose: false, meals: false, activities: false, notes: true },
+      };
+      const files = await exportAsCsv(TEST_USER_ID, options);
+      expect(files.length).toBe(1);
+
+      await deleteUserHealthData(TEST_USER_ID);
+
+      const prepared = await dataOwnershipService.prepareImport(
+        new File([files[0].content], files[0].fileName, { type: files[0].mimeType })
+      );
+      expect(prepared.fileKind).toBe("csv");
+
+      const result = await dataOwnershipService.importUserData(
+        TEST_USER_ID,
+        prepared.normalizedData
+      );
+      expect(result.totalImported).toBe(2);
+
+      const restored = await noteRepository.findByUser(TEST_USER_ID);
+      expect(restored.length).toBe(2);
+      const contents = restored.map((n) => n.content);
+      expect(contents).toContain("Me sentindo bem hoje");
+      expect(contents).toContain("Dor de cabeça leve");
+    });
+
+    it("export → import preserves all entity types in separate CSV files", async () => {
+      await seedAllData();
+
+      const options: ExportOptions = {
+        format: "csv",
+        scope: { glucose: true, meals: true, activities: true, notes: true },
+      };
+      const files = await exportAsCsv(TEST_USER_ID, options);
+      expect(files.length).toBe(4);
+
+      await deleteUserHealthData(TEST_USER_ID);
+
+      let totalImported = 0;
+      for (const file of files) {
+        const prepared = await dataOwnershipService.prepareImport(
+          new File([file.content], file.fileName, { type: file.mimeType })
+        );
+        const result = await dataOwnershipService.importUserData(
+          TEST_USER_ID,
+          prepared.normalizedData
+        );
+        totalImported += result.totalImported;
+      }
+
+      expect(totalImported).toBe(9);
+
+      const glucose = await glucoseRepository.findByUser(TEST_USER_ID);
+      const meals = await mealRepository.findByUser(TEST_USER_ID);
+      const activities = await activityRepository.findByUser(TEST_USER_ID);
+      const notes = await noteRepository.findByUser(TEST_USER_ID);
+
+      expect(glucose.length).toBe(3);
+      expect(meals.length).toBe(2);
+      expect(activities.length).toBe(2);
+      expect(notes.length).toBe(2);
     });
   });
 

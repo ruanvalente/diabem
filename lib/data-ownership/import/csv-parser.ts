@@ -123,15 +123,28 @@ export function parseCsvImport(content: string): CsvParseResult {
     };
   }
 
-  if (errors.some((e) => e.field !== "file" || !e.message.includes("inválido"))) {
-    // Only fail if there are actual data errors (not just file-level)
-  }
+  const totalParsed =
+    data.glucose.length +
+    data.meals.length +
+    data.activities.length +
+    data.notes.length;
 
-  return { ok: dataRows.length > 0, data, errors };
+  return { ok: totalParsed > 0, data, errors };
 }
 
 function getCol(headers: string[], name: string): number {
   return headers.indexOf(name.toLowerCase());
+}
+
+/**
+ * Returns the column index for a timestamp field.
+ * Checks the entity-specific column first (e.g. "consumedat", "startedat"),
+ * then falls back to the generic "timestamp" column used by the app's CSV export.
+ */
+function getTimestampCol(headers: string[], entitySpecificName: string): number {
+  const specific = getCol(headers, entitySpecificName);
+  if (specific !== -1) return specific;
+  return getCol(headers, "timestamp");
 }
 
 function parseGlucoseRows(
@@ -187,7 +200,7 @@ function parseMealRows(
   data: NormalizedImportData,
   errors: ImportValidationError[]
 ): void {
-  const tsIdx = getCol(headers, "timestamp");
+  const tsIdx = getTimestampCol(headers, "consumedat");
   const typeIdx = getCol(headers, "type");
   const descIdx = getCol(headers, "description");
   const notesIdx = getCol(headers, "notes");
@@ -233,7 +246,7 @@ function parseActivityRows(
   data: NormalizedImportData,
   errors: ImportValidationError[]
 ): void {
-  const tsIdx = getCol(headers, "timestamp");
+  const tsIdx = getTimestampCol(headers, "startedat");
   const typeIdx = getCol(headers, "type");
   const durIdx = getCol(headers, "durationminutes");
   const notesIdx = getCol(headers, "notes");
@@ -279,7 +292,7 @@ function parseNoteRows(
   data: NormalizedImportData,
   errors: ImportValidationError[]
 ): void {
-  const tsIdx = getCol(headers, "timestamp");
+  const tsIdx = getTimestampCol(headers, "createdat");
   const contentIdx = getCol(headers, "content");
   const createdIdx = getCol(headers, "createdat");
   const updatedIdx = getCol(headers, "updatedat");
