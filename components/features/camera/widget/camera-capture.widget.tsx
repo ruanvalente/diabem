@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useCamera } from "@/lib/browser/hooks/use-camera";
 import { cameraService } from "@/lib/browser/services/camera.service";
@@ -142,10 +143,13 @@ export function CameraCapture({
           />
         )}
         {hasCaptured && capturedDataUrl && (
-          <img
+          <Image
             src={capturedDataUrl}
             alt="Imagem capturada"
-            className="h-full w-full object-cover"
+            fill
+            sizes="100vw"
+            unoptimized
+            className="object-cover"
           />
         )}
         {isIdle && !hasCaptured && (
