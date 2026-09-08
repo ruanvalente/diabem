@@ -47,6 +47,12 @@ export type GlucoseReading = {
   context: GlucoseContext;
   measuredAt: string;
   notes?: string;
+  /**
+   * Stable dedup key for device-sourced readings (origin + timestamp + type +
+   * value). Persisted at import so re-syncing the same device never creates
+   * duplicates. Absent on readings imported via file (CSV/JSON).
+   */
+  sourceKey?: string;
   createdAt: string;
   updatedAt: string;
 };
