@@ -31,6 +31,16 @@ test("registers a glucose reading and sees it in the list", async ({ page }) => 
   await expect(page.getByText(/· Após a refeição/)).toBeVisible();
 });
 
+test("glucose form shows voice input button", async ({ page }) => {
+  await signup(page);
+
+  await goTo(page, "/glucose");
+  await page.getByRole("button", { name: "Registrar", exact: true }).click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Observação (opcional)")).toBeVisible();
+});
+
 test("registers a meal and then deletes it", async ({ page }) => {
   await signup(page);
 

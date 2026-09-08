@@ -6,12 +6,13 @@ import {
   User,
   Palette,
   Ruler,
-  Bell,
   Shield,
   ChevronRight,
   Smartphone,
 } from "lucide-react";
 import { DataOwnershipSection } from "@/components/features/data-ownership/widget/data-ownership-section.widget";
+import { NotificationSettingsCard } from "@/components/features/notifications/widget/notification-settings.card";
+import { DeviceIntegrationSection } from "@/components/features/devices/widget/device-integration-section.widget";
 
 const settingsSections = [
   {
@@ -34,14 +35,6 @@ const settingsSections = [
     items: [
       { label: "Glicemia", value: "mg/dL" },
       { label: "Peso", value: "kg" },
-    ],
-  },
-  {
-    title: "Notificações",
-    icon: Bell,
-    items: [
-      { label: "Lembretes", value: "Ativados" },
-      { label: "Notificações do navegador", value: "Desativados" },
     ],
   },
   {
@@ -108,6 +101,8 @@ export default function SettingsPage() {
           </Card>
         ))}
 
+        <NotificationSettingsCard />
+        <DeviceIntegrationSection />
         <DataOwnershipSection />
       </div>
     </div>

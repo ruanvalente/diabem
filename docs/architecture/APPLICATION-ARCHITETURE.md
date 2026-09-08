@@ -1292,6 +1292,12 @@ para valor vazio (ou `undefined`) sem quebrar a listagem inteira.
   **cache-first para estáticos**, **network-first para navegação** com fallback
   de shell, caches versionados (`diabem-static-v<N>`, `diabem-runtime-v<N>`) e
   limpeza de caches antigos.
+- Em **desenvolvimento** (origens `localhost`, `127.0.0.1`, `::1` ou
+  `*.local`) o cache-first de estáticos é **desativado**: o Turbopack renomeia
+  módulos a cada hot reload e o cache serviria chunks obsoletos ("module
+  factory is not available" após renomeações). O offline-first vale para builds
+  de produção; o SW continua registrado e com pré-cache do shell em dev
+  (coberto pelo e2e `pwa.spec.ts`).
 - O Service Worker **não contém regras de negócio** e não conhece dados de
   saúde. Requisições a `/api` e `/_next/data` não são interceptadas.
 - **Separação estrita**: Cache Storage = arquivos da aplicação; IndexedDB =
@@ -1422,3 +1428,137 @@ alta coesão, testabilidade e segurança.
 
 Não introduza abstrações ou camadas sem uma necessidade real.
 ```
+
+---
+
+# 36. Módulo Device Integration (Sprint 9)
+
+O módulo `lib/devices/` implementa a sincronização **manual, local-first e
+privacy-first** de dados de glicose diretamente de dispositivos compatíveis. O
+usuário mantém o controle total: nada é importado sem a aprovação explícita de
+um preview. Não há sincronização automática, background sync, cloud ou
+compartilhamento de dados.
+
+## 36.1 Motivação
+
+Permitir que o usuário traga medições gravadas no dispositivo para o app sem
+depender de nuvem ou de digitação manual, respeitando os princípios de
+local-first e privacy-by-design. Como **Web Bluetooth e Web Serial têm suporte
+limitado entre navegadores**, a detecção de capacidade é obrigatória e a
+arquitetura deve impedir que uma feature invoque uma API inexistente.
+
+## 36.2 Regra arquitetural central: o domínio nunca conhece o transporte
+
+O domínio e a UI **não sabem o que é Bluetooth, USB, Serial ou um fabricante
+específico**. Todo o conhecimento de transporte/protocolo (serviços GATT,
+framing serial, formatos de dados, autenticação) fica **encapsulado em
+adapters** que implementam o contrato `DeviceAdapter`.
+
+```text
+UI / Service
+    ↓ depende apenas de
+DeviceAdapter (contrato)
+    ├── BluetoothAdapter   → encapsula Web Bluetooth + protocolo
+    └── SerialAdapter      → encapsula Web Serial + protocolo
+```
+
+Adicionar um novo transporte (NFC, outro fabricante) é registrar outro adapter
+sem tocar no domínio ou nas features existentes.
+
+## 36.3 Pipeline de dados
+
+```text
+Raw Data → Parser → DeviceMeasurement → Normalizer → Dedup → Preview → confirmImport
+```
+
+1. **Parser** (`glucose-protocol.ts`): funções puras e transport-agnósticas que
+   convertem payloads em `DeviceMeasurement` neutros, descartando registros
+   inválidos.
+2. **Normalizer** (`device-normalizer.ts`): converte `DeviceMeasurement` em
+   entidades de domínio do app (glucose), ganhando proveniência (`source`) para
+   o Data Ownership.
+3. **Dedup**: identifica registros já existentes para nunca duplicar dados ao
+   ressincronizar. A chave combina origem + `measuredAt` + tipo + valor.
+4. **Preview** (`device-integration.service.ts`): calcula o resumo (novos,
+   duplicados, erros) **sem escrever nada**.
+5. **confirmImport** (`syncDevice → confirmImport`): persiste, atualiza o
+   registro/`lastSyncAt` e grava o histórico.
+
+## 36.4 Estrutura
+
+```text
+lib/devices/
+├── types/                    # Device, ConnectedDevice, DeviceMeasurement, SyncHistoryEntry
+├── core/
+│   ├── device-adapter.ts     # Contrato DeviceAdapter (mais importante)
+│   ├── device-manager.ts     # Registro de adapters + descoberta/conexão/sync
+│   ├── device-normalizer.ts  # Normalização + dedup key + SyncResult
+│   ├── glucose-protocol.ts   # Parser puro
+│   ├── device.errors.ts      # Taxonomia de erros + mensagens amigáveis PT-BR
+│   └── base-glucose-adapter.ts
+├── bluetooth/bluetooth-adapter.ts
+├── serial/serial-adapter.ts
+├── device-integration.service.ts   # Orquestra preview/import/histórico
+└── index.ts
+```
+
+O `deviceIntegrationService` singleton registra os adapters Bluetooth e Serial e
+expõe: `syncDevice`, `confirmImport`, `registerDevice`, `listDevices`,
+`removeDevice`, `getSyncHistory`.
+
+## 36.5 Persistência
+
+- **Device Registry** (`lib/db/repositories/device.repository.ts`): tabela
+  `devices` (Dexie v4). Consultas são **sempre escopadas por `userId`**
+  (inclusive `findById`/`remove`).
+- **Sync History**: tabela `syncHistory`.
+- Os registros guardam apenas **metadados não sensíveis** — nunca credenciais ou
+  segredos de pareamento. Como não contêm texto livre de saúde, **não são
+  criptografados em repouso** (consistente com a regra de criptografar só campos
+  sensíveis).
+- Leituras de glicose importadas de dispositivo persistem um campo não sensível
+  `sourceKey` (origem + timestamp + tipo + valor). Ele garante a
+  **deduplicação entre sincronizações** do mesmo dispositivo sem depender de
+  ID nativo (que se perde na normalização); leituras vindas de arquivo
+  (CSV/JSON) não o possuem e usam a chave de fallback.
+- `sync()` dos adapters retorna `{ measurements, droppedCount }`, então o
+  `errorCount` do preview reflete registros descartados pelo parser e não é
+  sempre zero.
+
+## 36.6 Detecção de capacidade
+
+A detecção fica em `lib/browser/capabilities/devices.ts` (bluetooth, serial,
+nfc, fileSystem). Features e UI **devem** consultar esse módulo — nunca inspecionar
+`window`/`navigator` diretamente — para permanecerem SSR-safe e testáveis. Quando
+nenhuma capacidade é suportada, a UI oferece fallback para importação por arquivo.
+
+## 36.7 Integração com Data Ownership
+
+`deleteUserHealthData` (`lib/data-ownership/delete-service.ts`) purga também o
+device registry e o histórico de sync do usuário, garantindo que "apagar meus
+dados" remova tudo (exceto conta/sessão).
+
+## 36.8 Segurança e privacidade
+
+- Sem importação automática ou em segundo plano; sempre preview + confirmação.
+- Sem credenciais/segredos de dispositivo persistidos.
+- Sem envio de dados a servidores; tudo permanece local (IndexedDB).
+- Erros brutos de hardware (ex.: "GATT Error 133") nunca são expostos; são
+  mapeados via `DeviceError` para mensagens conservadoras em PT-BR.
+- `Permissions-Policy` mantém `usb=()` e `bluetooth` gated por gesto do usuário.
+
+## 36.9 Testabilidade
+
+- Parsers/normalizador/dead são **funções puras**, testadas sem navegador.
+- `DeviceManager` e o serviço são testados com adapters mock e o banco Dexie em
+  memória (`fake-indexeddb`).
+- Testes cobrem: detecção de capacidade, parser, normalização, dedup (dentro do
+  mesmo lote e entre sincronizações), registry escopado por usuário, preview sem
+  escrita, confirmImport, histórico e integração com Data Ownership.
+
+## 36.10 Fora do escopo (MVP)
+
+Sincronização automática/contínua, background sync, suporte a dezenas de
+fabricantes, cloud, Apple Health/Google Health Connect, IA interpretando dados
+do dispositivo e MCP conectado diretamente aos dispositivos permanecem fora do
+MVP e não foram implementados.

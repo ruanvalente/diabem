@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -15,9 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { OptionPills } from "@/components/shared/option-pills";
 import { DateTimeInput } from "@/components/shared/date-time-input";
 import { toast } from "@/components/ui/toast";
-import { ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_ORDER } from "@/lib/health/constants";
+import {
+  ACTIVITY_TYPE_LABELS,
+  ACTIVITY_TYPE_ORDER,
+} from "@/lib/health/constants";
 import { activitySchema } from "@/lib/db/schema";
 import { toDateTimeLocalValue } from "@/lib/date";
+import { VoiceInputWidget } from "@/components/features/voice-input/widget/voice-input.widget";
 import type { Activity } from "@/lib/db/types";
 import type { SaveActivityInput, ServiceResult } from "@/lib/health/types";
 import { Activity as ActivityIcon, Loader2, Pencil } from "lucide-react";
@@ -33,7 +37,7 @@ type ActivityFormDialogProps = {
   record?: Activity | null;
   onSubmit: (
     input: SaveActivityInput,
-    record?: Activity
+    record?: Activity,
   ) => Promise<ServiceResult<Activity>>;
 };
 
@@ -49,16 +53,23 @@ export function ActivityFormDialog({
   // every time it is opened so the form always starts fresh.
   const [type, setType] = useState<Activity["type"] | undefined>(record?.type);
   const [duration, setDuration] = useState(
-    record ? String(record.durationMinutes) : ""
+    record ? String(record.durationMinutes) : "",
   );
   const [startedAtLocal, setStartedAtLocal] = useState(() =>
     record
       ? toDateTimeLocalValue(new Date(record.startedAt))
-      : toDateTimeLocalValue(new Date())
+      : toDateTimeLocalValue(new Date()),
   );
   const [notes, setNotes] = useState(record?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleNotesTranscript = useCallback((text: string) => {
+    setNotes((prev) => {
+      if (prev.trim() === "") return text;
+      return `${prev.trim()} ${text.trim()}`.trim();
+    });
+  }, []);
 
   const handleSubmit = async () => {
     const numericDuration = duration === "" ? undefined : Number(duration);
@@ -82,7 +93,7 @@ export function ActivityFormDialog({
         startedAtLocal,
         notes: validation.data.notes,
       },
-      record ?? undefined
+      record ?? undefined,
     );
     setIsSubmitting(false);
 
@@ -106,9 +117,7 @@ export function ActivityFormDialog({
           <DialogTitle>
             {isEditing ? "Editar atividade" : "Registrar atividade"}
           </DialogTitle>
-          <DialogDescription>
-            Registre sua atividade física.
-          </DialogDescription>
+          <DialogDescription>Registre sua atividade física.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
@@ -155,7 +164,10 @@ export function ActivityFormDialog({
                 aria-describedby={error ? "activity-duration-error" : undefined}
                 className="h-12 bg-muted/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground" aria-hidden="true">
+              <span
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+                aria-hidden="true"
+              >
                 min
               </span>
             </div>
@@ -173,12 +185,20 @@ export function ActivityFormDialog({
               placeholder="Ex: No parque com amigos"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              className="bg-muted/50"
+              className="my-2 lg:my-4 bg-muted/50"
+            />
+            <VoiceInputWidget
+              label="Falar observação"
+              onTranscript={handleNotesTranscript}
             />
           </div>
 
           {error && (
-            <p id="activity-duration-error" role="alert" className="text-sm text-destructive">
+            <p
+              id="activity-duration-error"
+              role="alert"
+              className="text-sm text-destructive"
+            >
               {error}
             </p>
           )}

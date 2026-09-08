@@ -27,7 +27,7 @@ type NoteFormDialogProps = {
   record?: Note | null;
   onUpdate: (
     id: string,
-    input: UpdateNoteInput
+    input: UpdateNoteInput,
   ) => Promise<ServiceResult<Note>>;
 };
 
@@ -58,7 +58,10 @@ export function NoteFormDialog({
     setIsSubmitting(false);
 
     if (result.ok) {
-      toast.add({ title: "Observação atualizada com sucesso.", type: "success" });
+      toast.add({
+        title: "Observação atualizada com sucesso.",
+        type: "success",
+      });
       onOpenChange(false);
     } else {
       toast.add({ title: result.error, type: "error" });
@@ -89,11 +92,15 @@ export function NoteFormDialog({
               onChange={(event) => setContent(event.target.value)}
               aria-invalid={!!error}
               aria-describedby={error ? "note-edit-content-error" : undefined}
-              className="bg-muted/50"
+              className="my-2 lg:my-4 bg-muted/50"
             />
           </div>
           {error && (
-            <p id="note-edit-content-error" role="alert" className="text-sm text-destructive">
+            <p
+              id="note-edit-content-error"
+              role="alert"
+              className="text-sm text-destructive"
+            >
               {error}
             </p>
           )}
