@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNotificationPermission } from "@/lib/browser/hooks/use-notifications";
@@ -100,11 +100,9 @@ export function NotificationSettingsCard() {
 }
 
 function ReminderTestControl() {
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-
-  useEffect(() => {
-    setReminders(reminderService.list());
-  }, []);
+  const [reminders, setReminders] = useState<Reminder[]>(() =>
+    reminderService.list()
+  );
 
   const addReminder = () => {
     const reminder = reminderService.save({
