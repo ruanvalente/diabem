@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { notificationService } from "../services/notification.service";
 import { notificationsSupported } from "../capabilities/notifications";
 
@@ -19,12 +19,6 @@ export function useNotificationPermission(): {
   const [state, setState] = useState<PermissionState>(() =>
     notificationService.getPermission()
   );
-
-  useEffect(() => {
-    if (notificationsSupported()) {
-      setState(notificationService.getPermission());
-    }
-  }, []);
 
   const request = useCallback(async () => {
     if (!notificationsSupported()) {
