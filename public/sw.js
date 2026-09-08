@@ -13,7 +13,7 @@
  * User data lives exclusively in IndexedDB (encrypted), never in Cache Storage.
  */
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const STATIC_CACHE = `diabem-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `diabem-runtime-${CACHE_VERSION}`;
 
@@ -66,6 +66,17 @@ function isStaticAsset(url) {
   return /\.(js|css|woff2?|ttf|otf|png|svg|ico|webp|jpg|jpeg)$/.test(url.pathname);
 }
 
+// Development never caches static chunks: Turbopack renames modules on every
+// hot reload, so cache-first would serve stale compiled modules ("module
+// factory is not available" after renames). Offline-first applies to
+// production builds; the shell/precache assertions in the e2e spec still
+// hold because they cover non-JS routes and assets only.
+const IS_DEV_ORIGIN =
+  self.location.hostname === "localhost" ||
+  self.location.hostname === "127.0.0.1" ||
+  self.location.hostname === "::1" ||
+  self.location.hostname.endsWith(".local");
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
@@ -103,8 +114,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets: cache-first, then network and store.
-  if (isStaticAsset(url)) {
+  // Static assets: cache-first, then network and store (skipped in dev).
+  if (isStaticAsset(url) && !IS_DEV_ORIGIN) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) {
