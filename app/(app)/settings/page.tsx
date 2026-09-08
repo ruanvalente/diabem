@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { DataOwnershipSection } from "@/components/features/data-ownership/widget/data-ownership-section.widget";
 import { NotificationSettingsCard } from "@/components/features/notifications/widget/notification-settings.card";
+import { DeviceIntegrationSection } from "@/components/features/devices/widget/device-integration-section.widget";
 
 const settingsSections = [
   {
@@ -101,6 +102,7 @@ export default function SettingsPage() {
         ))}
 
         <NotificationSettingsCard />
+        <DeviceIntegrationSection />
         <DataOwnershipSection />
       </div>
     </div>

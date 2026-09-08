@@ -20,11 +20,17 @@ describe("browserCapabilities", () => {
   it("returns supported capabilities when all APIs are available", () => {
     vi.stubGlobal("Notification", { permission: "default" });
     vi.stubGlobal("SpeechRecognition", class MockSR {});
-    vi.stubGlobal("navigator", { mediaDevices: { getUserMedia: vi.fn() } });
+    vi.stubGlobal("navigator", {
+      mediaDevices: { getUserMedia: vi.fn() },
+      bluetooth: { requestDevice: vi.fn() },
+      serial: { getPorts: vi.fn() },
+    });
     const caps = browserCapabilities();
     expect(caps.notifications.supported).toBe(true);
     expect(caps.speechRecognition.supported).toBe(true);
     expect(caps.camera.supported).toBe(true);
+    expect(caps.devices.bluetooth.supported).toBe(true);
+    expect(caps.devices.serial.supported).toBe(true);
   });
 
   it("returns unsupported capabilities when APIs are missing", () => {
@@ -36,5 +42,9 @@ describe("browserCapabilities", () => {
     expect(caps.notifications.supported).toBe(false);
     expect(caps.speechRecognition.supported).toBe(false);
     expect(caps.camera.supported).toBe(false);
+    expect(caps.devices.bluetooth.supported).toBe(false);
+    expect(caps.devices.serial.supported).toBe(false);
+    expect(caps.devices.nfc.supported).toBe(false);
+    expect(caps.devices.fileSystem.supported).toBe(false);
   });
 });
