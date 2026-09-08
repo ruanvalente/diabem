@@ -1292,6 +1292,12 @@ para valor vazio (ou `undefined`) sem quebrar a listagem inteira.
   **cache-first para estáticos**, **network-first para navegação** com fallback
   de shell, caches versionados (`diabem-static-v<N>`, `diabem-runtime-v<N>`) e
   limpeza de caches antigos.
+- Em **desenvolvimento** (origens `localhost`, `127.0.0.1`, `::1` ou
+  `*.local`) o cache-first de estáticos é **desativado**: o Turbopack renomeia
+  módulos a cada hot reload e o cache serviria chunks obsoletos ("module
+  factory is not available" após renomeações). O offline-first vale para builds
+  de produção; o SW continua registrado e com pré-cache do shell em dev
+  (coberto pelo e2e `pwa.spec.ts`).
 - O Service Worker **não contém regras de negócio** e não conhece dados de
   saúde. Requisições a `/api` e `/_next/data` não são interceptadas.
 - **Separação estrita**: Cache Storage = arquivos da aplicação; IndexedDB =
