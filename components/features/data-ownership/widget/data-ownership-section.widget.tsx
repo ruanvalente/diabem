@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -72,69 +73,74 @@ export function DataOwnershipSection() {
   const deleteAlertOpen = deleteStage === "confirm" || deleteStage === "export-option" || deleteStage === "pending";
 
   return (
-    <section aria-labelledby="seus-dados-title" className="space-y-4">
-      <div className="flex items-start gap-2">
-        <Database className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-        <div>
-          <h2 id="seus-dados-title" className="text-base font-semibold text-foreground">
-            Seus dados
-          </h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+    <Card className="border-border shadow-[var(--shadow-card)]">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Database className="size-4 text-primary" aria-hidden="true" />
+          Seus dados
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="p-0">
+        <div className="border-t border-border px-5 py-4">
+          <p className="text-sm text-muted-foreground">
             Seus dados ficam armazenados neste dispositivo.
           </p>
         </div>
-      </div>
 
-      <div className="grid gap-2">
-        <Button
-          variant="outline"
-          className="h-12 w-full justify-start gap-3 px-4 hover:cursor-pointer"
-          onClick={() => setExportOpen(true)}
-        >
-          <Download className="size-4 text-primary" aria-hidden="true" />
-          Exportar dados
-        </Button>
+        <div className="border-t border-border px-5 py-4">
+          <div className="grid gap-2">
+            <Button
+              variant="outline"
+              className="h-12 w-full justify-start gap-3 px-4 hover:cursor-pointer"
+              onClick={() => setExportOpen(true)}
+            >
+              <Download className="size-4 text-primary" aria-hidden="true" />
+              Exportar dados
+            </Button>
 
-        <Button
-          variant="outline"
-          className="h-12 w-full justify-start gap-3 px-4 hover:cursor-pointer"
-          onClick={() => setImportOpen(true)}
-        >
-          <Upload className="size-4 text-primary" aria-hidden="true" />
-          Importar dados
-        </Button>
+            <Button
+              variant="outline"
+              className="h-12 w-full justify-start gap-3 px-4 hover:cursor-pointer"
+              onClick={() => setImportOpen(true)}
+            >
+              <Upload className="size-4 text-primary" aria-hidden="true" />
+              Importar dados
+            </Button>
 
-        <Button
-          variant="outline"
-          className="h-12 w-full justify-start gap-3 px-4 hover:cursor-pointer"
-          onClick={() => setShareOpen(true)}
-        >
-          <Share2 className="size-4 text-primary" aria-hidden="true" />
-          Compartilhar resumo
-        </Button>
-      </div>
+            <Button
+              variant="outline"
+              className="h-12 w-full justify-start gap-3 px-4 hover:cursor-pointer"
+              onClick={() => setShareOpen(true)}
+            >
+              <Share2 className="size-4 text-primary" aria-hidden="true" />
+              Compartilhar resumo
+            </Button>
+          </div>
 
-      <button
-        type="button"
-        onClick={() => setPrivacyOpen(true)}
-        className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 rounded outline-none"
-      >
-        Saiba como seus dados são armazenados →
-      </button>
+          <button
+            type="button"
+            onClick={() => setPrivacyOpen(true)}
+            className="mt-4 rounded text-sm font-medium text-primary underline underline-offset-4 outline-none hover:text-primary/80 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            Saiba como seus dados são armazenados →
+          </button>
+        </div>
 
-      <div className="border-t border-border pt-4">
-        <Button
-          variant="destructive"
-          className="h-12 w-full justify-start gap-3 px-4 hover:cursor-pointer"
-          onClick={() => setDeleteStage("confirm")}
-        >
-          <Trash2 className="size-4" aria-hidden="true" />
-          Excluir todos os meus dados
-        </Button>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Esta ação exclui os dados de saúde armazenados neste dispositivo.
-        </p>
-      </div>
+        <div className="border-t border-border px-5 py-4">
+          <Button
+            variant="destructive"
+            className="h-12 w-full justify-start gap-3 px-4 hover:cursor-pointer"
+            onClick={() => setDeleteStage("confirm")}
+          >
+            <Trash2 className="size-4" aria-hidden="true" />
+            Excluir todos os meus dados
+          </Button>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Esta ação exclui os dados de saúde armazenados neste dispositivo.
+          </p>
+        </div>
+      </CardContent>
 
       <ExportDataDialog open={exportOpen} onOpenChange={setExportOpen} userId={userId} />
       <ImportDataDialog open={importOpen} onOpenChange={setImportOpen} userId={userId} />
@@ -222,6 +228,6 @@ export function DataOwnershipSection() {
           )}
         </AlertDialogContent>
       </AlertDialog>
-    </section>
+    </Card>
   );
 }

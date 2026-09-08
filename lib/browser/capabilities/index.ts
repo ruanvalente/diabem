@@ -22,6 +22,17 @@ import {
   cameraSupported,
   type CameraCapability,
 } from "./camera";
+import {
+  bluetoothCapability,
+  serialCapability,
+  nfcCapability,
+  fileSystemCapability,
+  deviceBluetoothSupported,
+  deviceSerialSupported,
+  deviceNfcSupported,
+  deviceFileSystemSupported,
+  type DeviceCapability,
+} from "./devices";
 
 /**
  * Snapshot of the capabilities of the current environment for the browser APIs
@@ -31,6 +42,19 @@ export type BrowserCapabilities = {
   notifications: NotificationCapability;
   speechRecognition: SpeechRecognitionCapability;
   camera: CameraCapability;
+  /** Device connection capabilities (Sprint 9 — Device Integrations). */
+  devices: DeviceCapabilities;
+};
+
+/**
+ * Device connection capabilities grouped together. No code in the domain should
+ * inspect the underlying browser globals directly; it should consume these.
+ */
+export type DeviceCapabilities = {
+  bluetooth: DeviceCapability;
+  serial: DeviceCapability;
+  nfc: DeviceCapability;
+  fileSystem: DeviceCapability;
 };
 
 /**
@@ -42,6 +66,12 @@ export function browserCapabilities(): BrowserCapabilities {
     notifications: notificationsCapability(),
     speechRecognition: speechRecognitionCapability(),
     camera: cameraCapability(),
+    devices: {
+      bluetooth: bluetoothCapability(),
+      serial: serialCapability(),
+      nfc: nfcCapability(),
+      fileSystem: fileSystemCapability(),
+    },
   };
 }
 
@@ -52,10 +82,19 @@ export {
   speechRecognitionSupported,
   cameraCapability,
   cameraSupported,
+  bluetoothCapability,
+  serialCapability,
+  nfcCapability,
+  fileSystemCapability,
+  deviceBluetoothSupported,
+  deviceSerialSupported,
+  deviceNfcSupported,
+  deviceFileSystemSupported,
 };
 
 export type {
   NotificationCapability,
   SpeechRecognitionCapability,
   CameraCapability,
+  DeviceCapability,
 };
