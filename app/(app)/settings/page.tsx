@@ -2,61 +2,58 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  User,
-  Palette,
-  Ruler,
-  Shield,
-  ChevronRight,
-  Smartphone,
-} from "lucide-react";
+import { User, Ruler, Shield, ChevronRight, Smartphone } from "lucide-react";
 import { DataOwnershipSection } from "@/components/features/data-ownership/widget/data-ownership-section.widget";
 import { NotificationSettingsCard } from "@/components/features/notifications/widget/notification-settings.card";
 import { DeviceIntegrationSection } from "@/components/features/devices/widget/device-integration-section.widget";
-
-const settingsSections = [
-  {
-    title: "Perfil",
-    icon: User,
-    items: [
-      { label: "Nome", value: "Ruan" },
-      { label: "Email", value: "ruan@email.com" },
-      { label: "Preferências", value: "" },
-    ],
-  },
-  {
-    title: "Aparência",
-    icon: Palette,
-    items: [{ label: "Modo", value: "Sistema" }],
-  },
-  {
-    title: "Unidades",
-    icon: Ruler,
-    items: [
-      { label: "Glicemia", value: "mg/dL" },
-      { label: "Peso", value: "kg" },
-    ],
-  },
-  {
-    title: "Privacidade e segurança",
-    icon: Shield,
-    items: [
-      { label: "Bloqueio de aplicação", value: "Desativado" },
-      { label: "Criptografia", value: "Não disponível" },
-    ],
-  },
-  {
-    title: "Aplicação",
-    icon: Smartphone,
-    items: [
-      { label: "Versão", value: "1.0.0" },
-      { label: "Armazenamento", value: "Local (IndexedDB)" },
-      { label: "Status", value: "Online" },
-    ],
-  },
-];
+import { useAuth } from "@/lib/auth/use-auth";
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+
+  const settingsSections = [
+    {
+      title: "Perfil",
+      icon: User,
+      items: [
+        { label: "Nome", value: user?.name ?? "—" },
+        { label: "Email", value: user?.email ?? "—" },
+        { label: "Preferências", value: "" },
+      ],
+    },
+    // TODO: implement appearance settings
+    // {
+    //   title: "Aparência",
+    //   icon: Palette,
+    //   items: [{ label: "Modo", value: "Sistema" }],
+    // },
+    {
+      title: "Unidades",
+      icon: Ruler,
+      items: [
+        { label: "Glicemia", value: "mg/dL" },
+        { label: "Peso", value: "kg" },
+      ],
+    },
+    {
+      title: "Privacidade e segurança",
+      icon: Shield,
+      items: [
+        { label: "Bloqueio de aplicação", value: "Desativado" },
+        { label: "Criptografia", value: "Não disponível" },
+      ],
+    },
+    {
+      title: "Aplicação",
+      icon: Smartphone,
+      items: [
+        { label: "Versão", value: "1.0.0" },
+        { label: "Armazenamento", value: "Local (IndexedDB)" },
+        { label: "Status", value: "Online" },
+      ],
+    },
+  ];
+
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8">
       <div className="mb-6">
