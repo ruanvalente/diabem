@@ -2,6 +2,9 @@
 
 > **Diário pessoal inteligente de diabetes.** Registre, acompanhe e entenda sua rotina de saúde — offline, privado e no seu bolso.
 
+<img width="3360" height="6510" alt="screencapture-diabem-vercel-app-2026-09-10-09_21_53" src="https://github.com/user-attachments/assets/6101c5f2-b203-428b-a6a3-aec81aa298ac" />
+
+
 DiaBem é uma **Progressive Web App (PWA)** de acompanhamento pessoal de diabetes, construída com foco em experiência mobile-first, armazenamento local criptografado e funcionamento offline. A aplicação permite registrar glicemia, refeições, atividades físicas, medicamentos e observações, visualizando evolução, padrões e estatísticas ao longo do tempo.
 
 **Aviso importante:** DiaBem é uma ferramenta de acompanhamento e organização de dados pessoais. Não realiza diagnóstico médico e não substitui orientação de profissionais de saúde.
