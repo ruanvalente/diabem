@@ -1,8 +1,15 @@
-import type { DiaBemExport } from "../types/export.types";
-import { CURRENT_EXPORT_VERSION } from "../types/export.types";
+import type { DiaBemExport, GlucoseExportRecord, MealExportRecord, ActivityExportRecord, NoteExportRecord } from "../types/export.types";
+import { CURRENT_EXPORT_VERSION, APPLICATION_NAME } from "../types/export.types";
 import type { ImportValidationError } from "../types/import.types";
+import {
+  glucoseRecordSchema,
+  mealRecordSchema,
+  activityRecordSchema,
+  noteRecordSchema,
+  validateRecordArray,
+} from "./record-validation";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 type JsonParseResult =
   | { ok: true; data: DiaBemExport }
@@ -10,7 +17,10 @@ type JsonParseResult =
 
 /**
  * Parses a JSON file string into a DiaBemExport envelope.
- * Validates structure, version, and required fields before returning.
+ * Validates the envelope (version, application identity, exportedAt), the
+ * data collections, and each record individually (per-record records are
+ * rejected with errors). Files that do not belong to DiaBem are rejected —
+ * a guard against importing data crafted for another application.
  */
 export function parseJsonImport(content: string): JsonParseResult {
   const errors: ImportValidationError[] = [];
@@ -41,7 +51,6 @@ export function parseJsonImport(content: string): JsonParseResult {
 
   const obj = parsed as Record<string, unknown>;
 
-  // Version validation
   if (typeof obj.version !== "number") {
     errors.push({ recordIndex: -1, field: "version", message: "Campo 'version' ausente ou inválido." });
   } else if (obj.version !== CURRENT_EXPORT_VERSION) {
@@ -52,32 +61,57 @@ export function parseJsonImport(content: string): JsonParseResult {
     });
   }
 
-  // Application validation
-  if (typeof obj.application !== "string" || obj.application.length === 0) {
-    errors.push({ recordIndex: -1, field: "application", message: "Campo 'application' ausente." });
+  if (typeof obj.application !== "string" || obj.application !== APPLICATION_NAME) {
+    const received = typeof obj.application === "string" ? obj.application : "(ausente)";
+    errors.push({
+      recordIndex: -1,
+      field: "application",
+      message: `Arquivo não pertence ao DiaBem (application: "${received}").`,
+    });
   }
 
-  // ExportedAt validation
   if (typeof obj.exportedAt !== "string" || !isValidIsoDate(obj.exportedAt)) {
     errors.push({ recordIndex: -1, field: "exportedAt", message: "Campo 'exportedAt' ausente ou inválido." });
   }
 
-  // Data validation
+  let glucoseRecords: unknown[] = [];
+  let mealRecords: unknown[] = [];
+  let activityRecords: unknown[] = [];
+  let noteRecords: unknown[] = [];
+
   if (typeof obj.data !== "object" || obj.data === null) {
     errors.push({ recordIndex: -1, field: "data", message: "Campo 'data' ausente." });
   } else {
     const data = obj.data as Record<string, unknown>;
     if (!Array.isArray(data.glucose)) {
       errors.push({ recordIndex: -1, field: "data.glucose", message: "Campo 'data.glucose' ausente." });
+    } else {
+      glucoseRecords = validateRecordArray<GlucoseExportRecord>(
+        data.glucose,
+        glucoseRecordSchema,
+        "Glicemia",
+        errors,
+      );
     }
     if (!Array.isArray(data.meals)) {
       errors.push({ recordIndex: -1, field: "data.meals", message: "Campo 'data.meals' ausente." });
+    } else {
+      mealRecords = validateRecordArray<MealExportRecord>(data.meals, mealRecordSchema, "Refeição", errors);
     }
     if (!Array.isArray(data.activities)) {
       errors.push({ recordIndex: -1, field: "data.activities", message: "Campo 'data.activities' ausente." });
+    } else {
+      activityRecords = validateRecordArray<ActivityExportRecord>(
+        data.activities,
+        activityRecordSchema,
+        "Atividade",
+        errors,
+      );
     }
     if (!Array.isArray(data.notes)) {
       errors.push({ recordIndex: -1, field: "data.notes", message: "Campo 'data.notes' ausente." });
+    } else {
+      noteRecords = validateRecordArray<NoteExportRecord>(data.notes, noteRecordSchema, "Nota", errors);
     }
   }
 
@@ -85,7 +119,20 @@ export function parseJsonImport(content: string): JsonParseResult {
     return { ok: false, errors };
   }
 
-  return { ok: true, data: parsed as DiaBemExport };
+  return {
+    ok: true,
+    data: {
+      version: CURRENT_EXPORT_VERSION,
+      application: APPLICATION_NAME,
+      exportedAt: obj.exportedAt as string,
+      data: {
+        glucose: glucoseRecords,
+        meals: mealRecords,
+        activities: activityRecords,
+        notes: noteRecords,
+      },
+    } as DiaBemExport,
+  };
 }
 
 function isValidIsoDate(value: string): boolean {

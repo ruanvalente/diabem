@@ -13,18 +13,19 @@ const DELIMITER = ",";
 
 /**
  * Escapes a value for safe CSV output.
- * - Wraps in quotes if the value contains the delimiter, quotes, or newlines.
- * - Doubles any existing quotes inside the value.
- * - Sanitizes CSV injection characters (=, +, -, @) at the start of values.
+ * - Wraps in quotes if the value contains the delimiter, quotes, or newlines,
+ *   doubling any existing quotes inside the value.
+ * - Guards against CSV formula injection (= + - @): checks the first
+ *   non-space character so a leading-whitespace bypass (" =SUM(A1:A10)") is
+ *   still neutralized, and prefixes the value with a single quote.
  */
 function escapeCsvValue(value: string | number | undefined | null): string {
   if (value === undefined || value === null) return "";
 
   const str = String(value);
 
-  // CSV Injection prevention: prefix formula-triggering characters
-  const firstChar = str.charAt(0);
-  if (["=", "+", "-", "@"].includes(firstChar)) {
+  const firstNonSpace = str.trimStart().charAt(0);
+  if (["=", "+", "-", "@", "\t", "\r"].includes(firstNonSpace)) {
     const escaped = `'${str}`;
     return quoteIfNeeded(escaped);
   }
@@ -130,11 +131,10 @@ export function serializeActivitiesToCsv(
 }
 
 export function serializeNotesToCsv(records: NoteExportRecord[]): string {
-  const headers = ["id", "timestamp", "content", "createdAt", "updatedAt"];
+  const headers = ["id", "content", "createdAt", "updatedAt"];
 
   const rows = records.map((r) => [
     escapeCsvValue(r.id),
-    escapeCsvValue(r.createdAt),
     escapeCsvValue(r.content),
     escapeCsvValue(r.createdAt),
     escapeCsvValue(r.updatedAt),

@@ -84,7 +84,8 @@ class CameraService {
 
   /**
    * Capture a single frame from the active stream as a Blob and a data URL.
-   * The stream is left running so the user can retake if needed.
+   * The stream is left running so the user can retake if needed. The hidden
+   * <video> element used for the capture is always released afterwards.
    */
   async capture(width = 1280): Promise<CameraResult> {
     const stream = this.stream;
@@ -95,23 +96,24 @@ class CameraService {
     const video = document.createElement("video");
     video.srcObject = stream;
     video.setAttribute("playsinline", "");
-    await new Promise<void>((resolve) => {
-      video.onloadedmetadata = () => resolve();
-      video.muted = true;
-      void video.load();
-    });
-    await video.play();
-
-    const canvas = document.createElement("canvas");
-    const ratio = video.videoHeight / (video.videoWidth || 1) || 1;
-    canvas.width = width;
-    canvas.height = Math.round(width * ratio);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      return { ok: false, reason: "capture-failed" };
-    }
 
     try {
+      await new Promise<void>((resolve) => {
+        video.onloadedmetadata = () => resolve();
+        video.muted = true;
+        void video.load();
+      });
+      await video.play();
+
+      const canvas = document.createElement("canvas");
+      const ratio = video.videoHeight / (video.videoWidth || 1) || 1;
+      canvas.width = width;
+      canvas.height = Math.round(width * ratio);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        return { ok: false, reason: "capture-failed" };
+      }
+
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const blob: Blob | null = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/jpeg", 0.85)
@@ -129,6 +131,9 @@ class CameraService {
       };
     } catch {
       return { ok: false, reason: "capture-failed" };
+    } finally {
+      video.srcObject = null;
+      video.remove();
     }
   }
 

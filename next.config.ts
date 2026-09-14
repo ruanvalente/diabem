@@ -36,10 +36,29 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "no-referrer" },
+  // Isolate this PWA's browsing context from cross-origin windows (COOP) and
+  // restrict which resources can be embedded by other sites (CORP). No
+  // cross-origin iframes/popups are used, so same-origin policies are safe.
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=self, microphone=self, geolocation=(), payment=(), usb=()",
+    value:
+      "camera=self, microphone=self, geolocation=(), payment=(), usb=(), " +
+      "battery=(), accelerometer=(), gyroscope=(), magnetometer=(), " +
+      "xr-spatial-tracking=(), serial=(), midi=()",
   },
+  // HSTS only in production: forces HTTPS for all subdomains and enables
+  // preload submission. Dev/demo runs on http://localhost, where the header
+  // would be ignored anyway.
+  ...(isProduction
+    ? [
+        {
+          key: "Strict-Transport-Security",
+          value: "max-age=63072000; includeSubDomains; preload",
+        },
+      ]
+    : []),
 ];
 
 const nextConfig: NextConfig = {

@@ -1,19 +1,23 @@
 import { getDatabase } from "../database";
 import type { LocalSession } from "../types";
 
+/** Default lifetime of a local session row (24h). */
+export const DEFAULT_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
 function getTable() {
   return getDatabase().sessions;
 }
 
 async function create(
-  data: Omit<LocalSession, "id" | "createdAt">
+  data: Omit<LocalSession, "id" | "createdAt"> & { expiresAt?: string }
 ): Promise<LocalSession> {
-  const now = new Date().toISOString();
+  const now = new Date();
   const id = crypto.randomUUID();
   const session: LocalSession = {
     ...data,
     id,
-    createdAt: now,
+    createdAt: now.toISOString(),
+    expiresAt: data.expiresAt ?? new Date(now.getTime() + DEFAULT_SESSION_TTL_MS).toISOString(),
   };
   await getTable().add(session);
   return session;
