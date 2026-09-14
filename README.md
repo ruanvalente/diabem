@@ -395,6 +395,12 @@ O DiaBem é instalável como PWA em:
 5. Crie um **commit** descritivo
 6. Abra um **Pull Request**
 
+Antes de abrir um PR, consulte [`SECURITY.md`](SECURITY.md) e o
+[`SECURITY-CHECKLIST.md`](docs/security/SECURITY-CHECKLIST.md) para garantir que
+sua contribuição segue a postura de segurança do projeto. Para reportar uma
+vulnerabilidade, não abra issue pública — use o reporte privado descrito em
+`SECURITY.md`.
+
 ### Convenções
 
 #### Nomenclatura
@@ -469,10 +475,12 @@ Funcionalidades planejadas ou em desenvolvimento:
 | Documento                                      | Descrição                                     |
 | ---------------------------------------------- | --------------------------------------------- |
 | `AGENTS.md`                                    | Regras do projeto e contrato de implementação |
+| `SECURITY.md`                                  | Postura de segurança e política do projeto    |
 | `docs/architecture/APPLICATION-ARCHITETURE.md` | Arquitetura da aplicação                      |
 | `docs/architecture/COMPONENT-ARCHITETURE.md`   | Arquitetura de componentes                    |
 | `docs/design/DESIGN.md`                        | Design system e paleta de cores               |
 | `docs/design/INTERFACE.md`                     | Especificação completa de UI/UX               |
+| `docs/security/`                              | Auditoria, modelo de ameaças, políticas e checklist |
 
 ---
 

@@ -24,6 +24,27 @@ function generateSalt(): string {
   return arrayBufferToHex(salt.buffer);
 }
 
+/**
+ * Compares two byte buffers in constant time. Both buffers must be equal in
+ * length; the loop always runs over the full length so the comparison time
+ * does not reveal how many leading bytes matched.
+ *
+ * The initial length check is intentionally not constant-time. This is only
+ * acceptable here because `deriveKey` always produces a fixed-length hash
+ * (64 bytes), so the length of both inputs is a known constant. Do not reuse
+ * this helper for secrets of unknown length without removing the early return.
+ */
+function constantTimeEqual(a: ArrayBuffer, b: ArrayBuffer): boolean {
+  if (a.byteLength !== b.byteLength) return false;
+  const bytesA = new Uint8Array(a);
+  const bytesB = new Uint8Array(b);
+  let diff = 0;
+  for (let i = 0; i < bytesA.length; i++) {
+    diff |= bytesA[i] ^ bytesB[i];
+  }
+  return diff === 0;
+}
+
 async function deriveKey(
   password: string,
   salt: string,
@@ -86,5 +107,7 @@ export async function verifyPassword(
     return { ok: false, error: result.error };
   }
 
-  return { ok: true, data: result.data === storedHash };
+  const derived = hexToArrayBuffer(result.data);
+  const stored = hexToArrayBuffer(storedHash);
+  return { ok: true, data: constantTimeEqual(derived, stored) };
 }

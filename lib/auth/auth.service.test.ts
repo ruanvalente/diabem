@@ -3,6 +3,13 @@ import { getDatabase } from "@/lib/db/database";
 import { clearSessionDataKey } from "@/lib/db/session-key";
 import { register, login, logout, getCurrentUser, restoreSession } from "./auth.service";
 
+const TEST_CREDENTIALS = {
+  name: "Test User",
+  email: "test@test.com",
+  password: "Senha123",
+  confirmPassword: "Senha123",
+};
+
 beforeEach(async () => {
   clearSessionDataKey();
   const db = getDatabase();
@@ -214,6 +221,25 @@ describe("restoreSession", () => {
 });
 
 describe("data isolation", () => {
+  it("treats expired session as invalid", async () => {
+    await register(TEST_CREDENTIALS);
+    const userBefore = await getCurrentUser();
+    expect(userBefore).not.toBeNull();
+
+    // Simulate an expired session row by rewriting expiresAt into the past.
+    const db = getDatabase();
+    const session = await db.sessions.toCollection().first();
+    if (session) {
+      await db.sessions.update(session.id, {
+        expiresAt: new Date(Date.now() - 10_000).toISOString(),
+      });
+    }
+
+    clearSessionDataKey();
+    const restored = await restoreSession();
+    expect(restored).toBeNull();
+  });
+
   it("User A does not see User B data", async () => {
     await register({
       name: "User A",
