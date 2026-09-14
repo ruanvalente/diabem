@@ -259,7 +259,7 @@ describe("Data Ownership — Export", () => {
       expect(files.length).toBe(1);
       // The CSV has BOM + header + 1 data row. The newline in content is inside quotes.
       const content = files[0].content;
-      expect(content).toContain("id,timestamp,content");
+      expect(content).toContain("id,content,createdAt");
       expect(content).toContain("Texto, com vírgula");
     });
 
@@ -280,6 +280,45 @@ describe("Data Ownership — Export", () => {
       const content = files[0].content;
       const lines = content.split("\n");
       expect(lines[1]).toContain("'=SUM(A1:A10)");
+    });
+
+    it("prevents CSV injection even with leading whitespace", async () => {
+      await noteRepository.create(
+        {
+          userId: TEST_USER_ID,
+          content: "  =SUM(A1:A10)",
+        },
+        { createdAt: "2026-09-01T08:00:00Z" }
+      );
+
+      const options: ExportOptions = {
+        format: "csv",
+        scope: { glucose: false, meals: false, activities: false, notes: true },
+      };
+      const files = await exportAsCsv(TEST_USER_ID, options);
+      const content = files[0].content;
+      const lines = content.split("\n");
+      // Leading whitespace + formula char must be guarded.
+      expect(lines[1]).toContain("'  =SUM(A1:A10)");
+    });
+
+    it("prevents CSV injection with tab-prefixed formula", async () => {
+      await noteRepository.create(
+        {
+          userId: TEST_USER_ID,
+          content: "\t=SUM(A1:A10)",
+        },
+        { createdAt: "2026-09-01T08:00:00Z" }
+      );
+
+      const options: ExportOptions = {
+        format: "csv",
+        scope: { glucose: false, meals: false, activities: false, notes: true },
+      };
+      const files = await exportAsCsv(TEST_USER_ID, options);
+      const content = files[0].content;
+      const lines = content.split("\n");
+      expect(lines[1]).toContain("'\t=SUM(A1:A10)");
     });
   });
 
@@ -373,6 +412,34 @@ describe("Data Ownership — Import", () => {
       }
     });
 
+    it("rejects files with wrong application name", () => {
+      const envelope = {
+        version: 1,
+        application: "OtherApp",
+        exportedAt: "2026-09-02T12:00:00Z",
+        data: { glucose: [], meals: [], activities: [], notes: [] },
+      };
+      const result = parseJsonImport(JSON.stringify(envelope));
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors.some((e) => e.field === "application")).toBe(true);
+        expect(result.errors.find((e) => e.field === "application")!.message).toContain("DiaBem");
+      }
+    });
+
+    it("rejects files with missing application field", () => {
+      const envelope = {
+        version: 1,
+        exportedAt: "2026-09-02T12:00:00Z",
+        data: { glucose: [], meals: [], activities: [], notes: [] },
+      };
+      const result = parseJsonImport(JSON.stringify(envelope));
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors.some((e) => e.field === "application")).toBe(true);
+      }
+    });
+
     it("rejects files exceeding size limit", () => {
       const large = "x".repeat(11 * 1024 * 1024);
       const result = parseJsonImport(large);
@@ -443,6 +510,57 @@ describe("Data Ownership — Import", () => {
     it("rejects empty CSV", () => {
       const result = parseCsvImport("");
       expect(result.ok).toBe(false);
+    });
+
+    it("strips injection-prevention apostrophe on re-import (round-trip)", () => {
+      // Simulates a CSV export that added the ' prefix, then re-imported.
+      const csv = [
+        "id,timestamp,content,createdAt,updatedAt",
+        "n1,2026-09-01T08:00:00Z,'=SUM(A1:A10),,",
+      ].join("\n");
+      const result = parseCsvImport(csv);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.notes.length).toBe(1);
+        expect(result.data.notes[0].content).toBe("=SUM(A1:A10)");
+      }
+    });
+
+    it("strips leading-whitespace + tab CSV injection apostrophe on re-import", () => {
+      const csv = [
+        "id,timestamp,content,createdAt,updatedAt",
+        "n1,2026-09-01T08:00:00Z,'  =SUM(A1:A10),,",
+      ].join("\n");
+      const result = parseCsvImport(csv);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        // CSV import always trims leading/trailing whitespace from text fields,
+        // so the leading spaces are stripped alongside the injection guard.
+        expect(result.data.notes[0].content).toBe("=SUM(A1:A10)");
+      }
+    });
+
+    it("does not strip a lone apostrophe not followed by formula char", () => {
+      const csv = [
+        "id,timestamp,content,createdAt,updatedAt",
+        "n1,2026-09-01T08:00:00Z,'Apenas uma nota,,",
+      ].join("\n");
+      const result = parseCsvImport(csv);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.notes[0].content).toBe("'Apenas uma nota");
+      }
+    });
+
+    it("rejects notes content exceeding the length cap", () => {
+      const longContent = "x".repeat(2001);
+      const csv = [
+        "id,timestamp,content,createdAt,updatedAt",
+        `n1,2026-09-01T08:00:00Z,"${longContent}",,`,
+      ].join("\n");
+      const result = parseCsvImport(csv);
+      expect(result.ok).toBe(false);
+      expect(result.errors.some((e) => e.field === "content")).toBe(true);
     });
 
     it("reports validation errors for invalid rows", () => {
@@ -899,6 +1017,36 @@ describe("Data Ownership — Delete", () => {
     expect(meals.length).toBe(0);
     expect(activities.length).toBe(0);
     expect(notes.length).toBe(0);
+  });
+
+  it("purges the user's sessions on deletion (logs out)", async () => {
+    const db = getDatabase();
+    await db.sessions.add({
+      id: "session-1",
+      userId: TEST_USER_ID,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+
+    await deleteUserHealthData(TEST_USER_ID);
+
+    const remaining = await db.sessions.where("userId").equals(TEST_USER_ID).toArray();
+    expect(remaining.length).toBe(0);
+  });
+
+  it("does not delete other users' sessions", async () => {
+    const db = getDatabase();
+    await db.sessions.add({
+      id: "session-other",
+      userId: "other-user",
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+
+    await deleteUserHealthData(TEST_USER_ID);
+
+    const other = await db.sessions.where("userId").equals("other-user").toArray();
+    expect(other.length).toBe(1);
   });
 });
 

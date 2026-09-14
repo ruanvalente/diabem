@@ -5,6 +5,11 @@ import type {
   NormalizedImportData,
   NormalizedMeal,
 } from "../types/import.types";
+import {
+  MAX_NOTE_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
+  MAX_CONTENT_LENGTH,
+} from "../../security/sanitization/text";
 
 /**
  * Parses a CSV string into rows of columns.
@@ -23,7 +28,7 @@ function parseCsvRows(content: string): string[][] {
     if (inQuotes) {
       if (char === '"' && next === '"') {
         field += '"';
-        i++; // skip escaped quote
+        i++;
       } else if (char === '"') {
         inQuotes = false;
       } else {
@@ -42,14 +47,13 @@ function parseCsvRows(content: string): string[][] {
           rows.push(current);
         }
         current = [];
-        if (char === "\r") i++; // skip \n after \r
+        if (char === "\r") i++;
       } else {
         field += char;
       }
     }
   }
 
-  // Last field/row
   current.push(field);
   if (current.some((f) => f.trim() !== "")) {
     rows.push(current);
@@ -75,6 +79,48 @@ function toNumber(value: string): number | undefined {
 function isValidDate(value: string): boolean {
   const d = new Date(value);
   return !Number.isNaN(d.getTime());
+}
+
+/**
+ * Strips the CSV injection prevention prefix (`'`) added by `escapeCsvValue`
+ * on export, but only when the field starts with the apostrophe and the next
+ * non-space character is one of the formula-triggering characters (=, +, -, @).
+ * This mirrors the export guard's `trimStart()` logic to prevent round-trip
+ * accumulation of `'` prefixes on re-import.
+ */
+function unescapeCsvInjectionGuard(value: string): string {
+  if (value.length >= 2 && value.charAt(0) === "'") {
+    const remainder = value.slice(1);
+    const firstNonSpace = remainder.trimStart().charAt(0);
+    if (["=", "+", "-", "@", "\t", "\r"].includes(firstNonSpace)) {
+      return remainder;
+    }
+  }
+  return value;
+}
+
+/**
+ * Validates that a text field does not exceed a given length cap.
+ * Returns the trimmed value, or `undefined` and pushes an error if over limit.
+ */
+function cappedTextField(
+  value: string,
+  maxLength: number,
+  fieldName: string,
+  recordIndex: number,
+  errors: ImportValidationError[],
+): string | undefined {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return undefined;
+  if (trimmed.length > maxLength) {
+    errors.push({
+      recordIndex,
+      field: fieldName,
+      message: `Texto excede o limite de ${maxLength} caracteres.`,
+    });
+    return undefined;
+  }
+  return trimmed;
 }
 
 type CsvParseResult =
@@ -107,7 +153,6 @@ export function parseCsvImport(content: string): CsvParseResult {
     notes: [],
   };
 
-  // Detect entity type from headers
   if (headers.includes("value") && headers.includes("context")) {
     parseGlucoseRows(headers, dataRows, data, errors);
   } else if (headers.includes("type") && headers.includes("description")) {
@@ -182,12 +227,15 @@ function parseGlucoseRows(
     const createdAt = row[createdIdx]?.trim() || timestamp;
     const updatedAt = row[updatedIdx]?.trim() || createdAt;
 
+    const rawNotes = row[notesIdx] ? unescapeCsvInjectionGuard(row[notesIdx]) : "";
+    const notes = cappedTextField(rawNotes, MAX_NOTE_LENGTH, "notes", i + 2, errors);
+
     data.glucose.push({
       value,
       unit: "mg/dL",
       context: context as NormalizedGlucose["context"],
       measuredAt: timestamp,
-      notes: row[notesIdx]?.trim() || undefined,
+      notes,
       createdAt: isValidDate(createdAt) ? createdAt : timestamp,
       updatedAt: isValidDate(updatedAt) ? updatedAt : createdAt,
     });
@@ -214,9 +262,13 @@ function parseMealRows(
       return;
     }
 
-    const description = row[descIdx]?.trim();
-    if (!description || description.length < 2) {
+    const descriptionClean = row[descIdx] ? unescapeCsvInjectionGuard(row[descIdx]).trim() : "";
+    if (descriptionClean.length < 2) {
       errors.push({ recordIndex: i + 2, field: "description", message: "Descrição inválida." });
+      return;
+    }
+    if (descriptionClean.length > MAX_DESCRIPTION_LENGTH) {
+      errors.push({ recordIndex: i + 2, field: "description", message: `Descrição excede o limite de ${MAX_DESCRIPTION_LENGTH} caracteres.` });
       return;
     }
 
@@ -229,11 +281,14 @@ function parseMealRows(
     const createdAt = row[createdIdx]?.trim() || timestamp;
     const updatedAt = row[updatedIdx]?.trim() || createdAt;
 
+    const rawNotes = row[notesIdx] ? unescapeCsvInjectionGuard(row[notesIdx]) : "";
+    const notes = cappedTextField(rawNotes, MAX_NOTE_LENGTH, "notes", i + 2, errors);
+
     data.meals.push({
       type: type as NormalizedMeal["type"],
-      description,
+      description: descriptionClean,
       consumedAt: timestamp,
-      notes: row[notesIdx]?.trim() || undefined,
+      notes,
       createdAt: isValidDate(createdAt) ? createdAt : timestamp,
       updatedAt: isValidDate(updatedAt) ? updatedAt : createdAt,
     });
@@ -275,11 +330,14 @@ function parseActivityRows(
     const createdAt = row[createdIdx]?.trim() || timestamp;
     const updatedAt = row[updatedIdx]?.trim() || createdAt;
 
+    const rawNotes = row[notesIdx] ? unescapeCsvInjectionGuard(row[notesIdx]) : "";
+    const notes = cappedTextField(rawNotes, MAX_NOTE_LENGTH, "notes", i + 2, errors);
+
     data.activities.push({
       type: type as NormalizedActivity["type"],
       durationMinutes: duration,
       startedAt: timestamp,
-      notes: row[notesIdx]?.trim() || undefined,
+      notes,
       createdAt: isValidDate(createdAt) ? createdAt : timestamp,
       updatedAt: isValidDate(updatedAt) ? updatedAt : createdAt,
     });
@@ -298,9 +356,13 @@ function parseNoteRows(
   const updatedIdx = getCol(headers, "updatedat");
 
   rows.forEach((row, i) => {
-    const content = row[contentIdx]?.trim();
-    if (!content || content.length < 1) {
+    const contentRaw = row[contentIdx] ? unescapeCsvInjectionGuard(row[contentIdx]).trim() : "";
+    if (contentRaw.length < 1) {
       errors.push({ recordIndex: i + 2, field: "content", message: "Conteúdo vazio." });
+      return;
+    }
+    if (contentRaw.length > MAX_CONTENT_LENGTH) {
+      errors.push({ recordIndex: i + 2, field: "content", message: `Conteúdo excede o limite de ${MAX_CONTENT_LENGTH} caracteres.` });
       return;
     }
 
@@ -309,7 +371,7 @@ function parseNoteRows(
     const updatedAt = row[updatedIdx]?.trim() || createdAt;
 
     data.notes.push({
-      content,
+      content: contentRaw,
       createdAt: isValidDate(createdAt) ? createdAt : new Date().toISOString(),
       updatedAt: isValidDate(updatedAt) ? updatedAt : createdAt,
     });
