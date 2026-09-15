@@ -63,6 +63,12 @@ describe("computeIntelligenceAnalytics", () => {
     expect(result.dataQuality.sufficientForAnalysis).toBe(false);
   });
 
+  it("reports unknown quality level for an empty dataset", () => {
+    const result = computeIntelligenceAnalytics([], [], [], PERIOD);
+    expect(result.dataQuality.score).toBe(0);
+    expect(result.dataQuality.level).toBe("unknown");
+  });
+
   it("builds meal-glucose temporal relations", () => {
     const meals = [
       meal("m1", { y: 2026, mo: 7, d: 25, h: 12, min: 30 }),

@@ -1,5 +1,6 @@
 import type { IntelligenceRule, RuleContext, RuleResult } from "../types/rule.types";
 import { createPattern } from "./pattern-factory";
+import { glucoseInPeriod, recordIds } from "./rule-helpers";
 
 const AVERAGE_CHANGE_THRESHOLD_PERCENT = 10;
 
@@ -18,6 +19,11 @@ export const averageChangeRule: IntelligenceRule = {
     const absPercent = Math.abs(average.percentageDifference);
     if (absPercent < AVERAGE_CHANGE_THRESHOLD_PERCENT) return null;
 
+    const records = glucoseInPeriod(context.records.glucose, context.period);
+    const ids = recordIds(records);
+
+    const direction = average.percentageDifference > 0 ? "aumento" : "queda";
+
     return {
       patterns: [
         createPattern(
@@ -30,9 +36,16 @@ export const averageChangeRule: IntelligenceRule = {
               value: average.current,
               comparison: average.previous,
               period: context.period,
+              sourceIds: ids,
             },
           ],
-          Math.min(1, absPercent / 50)
+          Math.min(1, absPercent / 50),
+          {
+            ruleVersion: "1.0.0",
+            title: "Mudança na média",
+            explanation: `A média de glicemia ${direction} de ${average.previous.toFixed(0)} para ${average.current.toFixed(0)} mg/dL em relação ao período anterior.`,
+            sourceIds: ids,
+          }
         ),
       ],
     };

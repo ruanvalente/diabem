@@ -31,6 +31,7 @@ import { DashboardChartsSection } from "../ui/dashboard-charts-section.ui";
 import { RecentRecords } from "../ui/recent-records.ui";
 import { InsightsSection } from "../ui/insights-section.ui";
 import { InsightDetails } from "../ui/insight-details.ui";
+import { QualityIndicator } from "../ui/quality-indicator.ui";
 
 function getSubtitle(selection: PeriodSelection): string {
   if (selection.period === "custom" && selection.custom) {
@@ -159,6 +160,9 @@ export function DashboardWidget() {
           />
           <QuickActions actions={QUICK_ACTIONS} />
           <DaySummaryList cards={summaryCards} title="Resumo do período" />
+          {!isLoading && intelligence.result?.analytics.dataQuality && (
+            <QualityIndicator quality={intelligence.result.analytics.dataQuality} />
+          )}
           {!isLoading && intelligence.insights.length > 0 && (
             <InsightsSection
               insights={intelligence.insights}

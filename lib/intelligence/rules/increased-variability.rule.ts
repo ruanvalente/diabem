@@ -1,5 +1,6 @@
 import type { IntelligenceRule, RuleContext, RuleResult } from "../types/rule.types";
 import { createPattern } from "./pattern-factory";
+import { glucoseInPeriod, recordIds } from "./rule-helpers";
 
 export const increasedVariabilityRule: IntelligenceRule = {
   id: "increased-variability",
@@ -17,6 +18,9 @@ export const increasedVariabilityRule: IntelligenceRule = {
     if (comparisons.average.previous > 0) {
       const previousSD = comparisons.average.previous * 0.2;
       if (currentSD > previousSD * 1.5) {
+        const records = glucoseInPeriod(context.records.glucose, context.period);
+        const ids = recordIds(records);
+
         return {
           patterns: [
             createPattern(
@@ -29,8 +33,16 @@ export const increasedVariabilityRule: IntelligenceRule = {
                   value: currentSD,
                   comparison: previousSD,
                   period: context.period,
+                  sourceIds: ids,
                 },
-              ]
+              ],
+              undefined,
+              {
+                ruleVersion: "1.0.0",
+                title: "Variabilidade nos registros",
+                explanation: `O desvio padrão das medições de glicemia (${currentSD.toFixed(1)} mg/dL) está maior do que o esperado para o período.`,
+                sourceIds: ids,
+              }
             ),
           ],
         };

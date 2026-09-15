@@ -125,3 +125,42 @@ describe("listGlucoseReadings", () => {
     }
   });
 });
+
+describe("provenance", () => {
+  it("stamps manual provenance by default", async () => {
+    const result = await createGlucoseReading("user-a", validInput);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.provenance).toMatchObject({ source: "manual" });
+      expect(result.data.provenance?.sourceId).toBeUndefined();
+      expect(result.data.provenance?.recordedAt).toBeTruthy();
+    }
+  });
+
+  it("propagates an explicit provenance source", async () => {
+    const result = await createGlucoseReading("user-a", {
+      ...validInput,
+      provenanceSource: "device",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.provenance).toMatchObject({ source: "device" });
+    }
+  });
+
+  it("preserves original provenance when a record is corrected", async () => {
+    const created = await createGlucoseReading("user-a", validInput);
+    if (!created.ok) throw new Error("setup failed");
+
+    const result = await updateGlucoseReading("user-a", created.data.id, {
+      value: 200,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.provenance).toMatchObject({
+        source: "manual",
+        recordedAt: created.data.provenance?.recordedAt,
+      });
+    }
+  });
+});

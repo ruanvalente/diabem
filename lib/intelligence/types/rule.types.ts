@@ -1,3 +1,8 @@
+import type {
+  Activity,
+  GlucoseReading,
+  Meal,
+} from "@/lib/db/types";
 import type { AnalysisPeriod, IntelligenceAnalytics, DataQuality } from "./analytics.types";
 
 export type PatternType =
@@ -16,15 +21,21 @@ export type PatternEvidence = {
   value: number;
   comparison?: number;
   period: AnalysisPeriod;
+  sourceIds?: string[];
 };
 
 export type Pattern = {
   id: string;
   ruleId: string;
+  ruleVersion: string;
   type: PatternType;
   severity: PatternSeverity;
   confidence?: number;
+  title: string;
+  explanation: string;
   evidence: PatternEvidence[];
+  sourceIds: string[];
+  generatedAt: string;
 };
 
 export type RuleResult = {
@@ -35,6 +46,11 @@ export type RuleContext = {
   period: AnalysisPeriod;
   analytics: IntelligenceAnalytics;
   dataQuality: DataQuality;
+  records: {
+    glucose: GlucoseReading[];
+    meals: Meal[];
+    activities: Activity[];
+  };
 };
 
 export interface IntelligenceRule {

@@ -36,6 +36,11 @@ function buildContext(input: {
     period: PERIOD,
     analytics,
     dataQuality: analytics.dataQuality,
+    records: {
+      glucose: input.glucose ?? [],
+      meals: input.meals ?? [],
+      activities: input.activities ?? [],
+    },
   };
 }
 

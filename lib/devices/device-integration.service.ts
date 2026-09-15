@@ -32,6 +32,7 @@ import type {
 import { deviceRepository } from "../db/repositories/device.repository";
 import { glucoseRepository } from "../db/repositories/glucose.repository";
 import type { NormalizedGlucose } from "../data-ownership/types/import.types";
+import { recordAuditAsync } from "../audit";
 
 export type SyncPreview = {
   device: Device;
@@ -197,6 +198,7 @@ export class DeviceIntegrationService implements DeviceIntegrationServiceInstanc
             measuredAt: record.measuredAt,
             notes: record.notes,
             sourceKey: record.sourceKey,
+            provenance: record.provenance,
           },
           { createdAt: record.createdAt, updatedAt: record.updatedAt }
         );
@@ -226,6 +228,8 @@ export class DeviceIntegrationService implements DeviceIntegrationServiceInstanc
       message: errors > 0 ? "Alguns registros não puderam ser importados." : undefined,
     };
     await deviceRepository.addHistory(entry);
+
+    recordAuditAsync("data.imported", "device", userId);
 
     return {
       ...outcome.result,

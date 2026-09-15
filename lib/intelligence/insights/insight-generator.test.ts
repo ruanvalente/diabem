@@ -12,11 +12,16 @@ function pattern(overrides: Partial<Pattern> = {}): Pattern {
   return {
     id: "p1",
     ruleId: "r1",
+    ruleVersion: "1.0.0",
     type: "insufficient_data",
     severity: "notice",
+    title: "Dados insuficientes",
+    explanation: "Explicação.",
     evidence: [
       { metric: "total_records", value: 3, comparison: 10, period: PERIOD },
     ],
+    sourceIds: ["g1", "g2"],
+    generatedAt: "2026-08-22T00:00:00.000Z",
     ...overrides,
   };
 }
@@ -30,6 +35,15 @@ describe("generateInsights", () => {
     expect(insight.description).toContain("dados");
     expect(insight.evidence).toHaveLength(1);
     expect(insight.generatedAt).toBeTruthy();
+  });
+
+  it("carries rule metadata and source lineage onto the insight", () => {
+    const insights = generateInsights([pattern()]);
+    const insight = insights[0];
+    expect(insight.ruleId).toBe("r1");
+    expect(insight.ruleVersion).toBe("1.0.0");
+    expect(insight.explanation).toBe("Explicação.");
+    expect(insight.sourceIds).toEqual(["g1", "g2"]);
   });
 
   it("maps pattern type to an observation insight with evidence", () => {

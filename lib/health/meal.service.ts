@@ -8,6 +8,7 @@ import type {
   UpdateMealInput,
 } from "./types";
 import { firstErrorMessage, parseLocalDateTime } from "./validation";
+import { recordAuditAsync } from "../audit";
 
 export async function createMeal(
   userId: string,
@@ -23,13 +24,20 @@ export async function createMeal(
     return { ok: false, error: firstErrorMessage(validation) };
   }
 
+  const now = new Date().toISOString();
   const record = await mealRepository.create({
     userId,
     type: validation.data.type,
     description: validation.data.description,
     consumedAt: validation.data.consumedAt,
     notes: validation.data.notes,
+    provenance: {
+      source: input.provenanceSource ?? "manual",
+      recordedAt: now,
+    },
   });
+
+  recordAuditAsync("record.created", "meal", userId, record.id);
 
   return { ok: true, data: record };
 }
@@ -66,6 +74,8 @@ export async function updateMeal(
     return { ok: false, error: "Registro não encontrado" };
   }
 
+  recordAuditAsync("record.updated", "meal", userId, id);
+
   return { ok: true, data: updated };
 }
 
@@ -87,5 +97,6 @@ export async function deleteMeal(
   }
 
   await mealRepository.deleteById(id);
+  recordAuditAsync("record.deleted", "meal", userId, id);
   return { ok: true, data: { id } };
 }

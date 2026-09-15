@@ -36,6 +36,29 @@ export type ActivityType =
   | "other";
 
 /**
+ * Origin of a data record — answers "Where did this data come from?"
+ * Used for Data Provenance (Sprint 11, plan §2).
+ */
+export type DataSource =
+  | "manual"
+  | "import"
+  | "device"
+  | "camera"
+  | "speech"
+  | "system";
+
+/**
+ * Provenance metadata attached to records. Non-sensitive — stored plaintext
+ * (consistent with sourceKey / syncHistory precedent).
+ */
+export type DataProvenance = {
+  source: DataSource;
+  sourceId?: string;
+  importedAt?: string;
+  recordedAt: string;
+};
+
+/**
  * A single glucose measurement. All values are persisted in ISO 8601 UTC and
  * rendered in the user's own timezone.
  */
@@ -53,6 +76,7 @@ export type GlucoseReading = {
    * duplicates. Absent on readings imported via file (CSV/JSON).
    */
   sourceKey?: string;
+  provenance?: DataProvenance;
   createdAt: string;
   updatedAt: string;
 };
@@ -64,6 +88,7 @@ export type Meal = {
   description: string;
   consumedAt: string;
   notes?: string;
+  provenance?: DataProvenance;
   createdAt: string;
   updatedAt: string;
 };
@@ -75,6 +100,7 @@ export type Activity = {
   durationMinutes: number;
   startedAt: string;
   notes?: string;
+  provenance?: DataProvenance;
   createdAt: string;
   updatedAt: string;
 };
@@ -83,6 +109,7 @@ export type Note = {
   id: string;
   userId: string;
   content: string;
+  provenance?: DataProvenance;
   createdAt: string;
   updatedAt: string;
 };
