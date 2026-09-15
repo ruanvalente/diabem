@@ -8,6 +8,7 @@ import type {
   UpdateNoteInput,
 } from "./types";
 import { firstErrorMessage } from "./validation";
+import { recordAuditAsync } from "../audit";
 
 export async function createNote(
   userId: string,
@@ -18,10 +19,17 @@ export async function createNote(
     return { ok: false, error: firstErrorMessage(validation) };
   }
 
+  const now = new Date().toISOString();
   const record = await noteRepository.create({
     userId,
     content: validation.data.content,
+    provenance: {
+      source: input.provenanceSource ?? "manual",
+      recordedAt: now,
+    },
   });
+
+  recordAuditAsync("record.created", "note", userId, record.id);
 
   return { ok: true, data: record };
 }
@@ -46,6 +54,8 @@ export async function updateNote(
     return { ok: false, error: "Registro não encontrado" };
   }
 
+  recordAuditAsync("record.updated", "note", userId, id);
+
   return { ok: true, data: updated };
 }
 
@@ -67,5 +77,6 @@ export async function deleteNote(
   }
 
   await noteRepository.deleteById(id);
+  recordAuditAsync("record.deleted", "note", userId, id);
   return { ok: true, data: { id } };
 }

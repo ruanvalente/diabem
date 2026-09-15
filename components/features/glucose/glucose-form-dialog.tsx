@@ -66,8 +66,10 @@ export function GlucoseFormDialog({
   const [notes, setNotes] = useState(record?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [speechUsed, setSpeechUsed] = useState(false);
 
   const handleNotesTranscript = useCallback((text: string) => {
+    setSpeechUsed(true);
     setNotes((prev) => {
       if (prev.trim() === "") return text;
       return `${prev.trim()} ${text.trim()}`.trim();
@@ -100,6 +102,7 @@ export function GlucoseFormDialog({
         context: validation.data.context,
         measuredAtLocal,
         notes: validation.data.notes,
+        provenanceSource: !isEditing && speechUsed ? "speech" : undefined,
       },
       record ?? undefined,
     );

@@ -9,6 +9,8 @@ import type { GlucoseReading, Meal, Activity } from "@/lib/db/types";
 import { calculateBasicStats, calculateCoefficientOfVariation } from "./statistics";
 import { groupByTimeOfDay } from "./time-slots";
 import { calculateTrend } from "./trend";
+import { assessDataset, levelFromScore } from "@/lib/data-quality";
+import type { DataQualityIssue, DataQualityIssueCode } from "@/lib/data-quality/types";
 
 const MEAL_BEFORE_MINUTES = 60;
 const MEAL_AFTER_MINUTES = 120;
@@ -65,6 +67,16 @@ function computeActivityAnalytics(activities: Activity[]) {
   };
 }
 
+function collectIssues(results: { issues: DataQualityIssue[] }[]): DataQualityIssue[] {
+  const byCode = new Map<DataQualityIssueCode, DataQualityIssue>();
+  for (const result of results) {
+    for (const issue of result.issues) {
+      if (!byCode.has(issue.code)) byCode.set(issue.code, issue);
+    }
+  }
+  return [...byCode.values()];
+}
+
 function computeDataQuality(
   glucose: GlucoseReading[],
   meals: Meal[],
@@ -107,12 +119,23 @@ function computeDataQuality(
   const periodCoverage =
     periodMs > 0 ? Math.round((coveredDays / Math.ceil(periodMs / (24 * 60 * 60 * 1000))) * 100) / 100 : 0;
 
+  const results = assessDataset({ glucose, meals, activities });
+  const score =
+    results.length === 0
+      ? 0
+      : Math.round(
+          (results.reduce((sum, r) => sum + r.score, 0) / results.length) * 100
+        ) / 100;
+
   return {
     totalRecords,
     missingValues,
     duplicatedRecords,
     periodCoverage,
     sufficientForAnalysis: totalRecords >= 10,
+    score,
+    level: levelFromScore(score),
+    issues: collectIssues(results),
   };
 }
 

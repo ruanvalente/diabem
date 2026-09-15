@@ -1,3 +1,7 @@
+import type { DataQualityIssue, DataQualityLevel } from "@/lib/data-quality/types";
+
+export const INTELLIGENCE_ENGINE_VERSION = "1.0.0";
+
 export type AnalysisPeriod = {
   start: string;
   end: string;
@@ -90,6 +94,9 @@ export type DataQuality = {
   duplicatedRecords: number;
   periodCoverage: number;
   sufficientForAnalysis: boolean;
+  score: number;
+  level: DataQualityLevel;
+  issues: DataQualityIssue[];
 };
 
 export type IntelligenceAnalytics = {
@@ -109,4 +116,12 @@ export type DatasetVersion = {
   userId: string;
   version: number;
   updatedAt: string;
+};
+
+export type AnalyticsSnapshot = {
+  generatedAt: string;
+  period: AnalysisPeriod;
+  recordCount: number;
+  sourceIds: string[];
+  engineVersion: string;
 };

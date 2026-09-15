@@ -11,9 +11,10 @@ import type {
   ConnectedDevice,
   SyncHistoryEntry,
 } from "../devices/types/device.types";
+import type { AuditEntry } from "../audit/audit.types";
 
 const DB_NAME = "diabem";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 class DiaBemDatabase extends Dexie {
   users!: Table<User, string>;
@@ -26,6 +27,8 @@ class DiaBemDatabase extends Dexie {
   devices!: Table<ConnectedDevice, string>;
   /** Device sync history for the current user. */
   syncHistory!: Table<SyncHistoryEntry, string>;
+  /** Technical audit trail — no sensitive content (Sprint 11, plan §15). */
+  auditTrail!: Table<AuditEntry, string>;
 
   constructor() {
     super(DB_NAME);
@@ -46,6 +49,15 @@ class DiaBemDatabase extends Dexie {
       activities: "id, userId, [userId+startedAt], [userId+type]",
       notes: "id, userId, [userId+createdAt]",
     });
+    this.version(4).stores({
+      users: "id, email, createdAt, keySalt",
+      glucoseReadings: "id, userId, [userId+measuredAt], [userId+context]",
+      meals: "id, userId, [userId+consumedAt], [userId+type]",
+      activities: "id, userId, [userId+startedAt], [userId+type]",
+      notes: "id, userId, [userId+createdAt]",
+      devices: "id, userId, adapterId, transport, lastSyncAt",
+      syncHistory: "id, userId, deviceId, syncedAt",
+    });
     this.version(DB_VERSION).stores({
       users: "id, email, createdAt, keySalt",
       glucoseReadings: "id, userId, [userId+measuredAt], [userId+context]",
@@ -54,6 +66,7 @@ class DiaBemDatabase extends Dexie {
       notes: "id, userId, [userId+createdAt]",
       devices: "id, userId, adapterId, transport, lastSyncAt",
       syncHistory: "id, userId, deviceId, syncedAt",
+      auditTrail: "id, userId, [userId+timestamp], entity, entityId, action",
     });
   }
 }

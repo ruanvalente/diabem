@@ -25,6 +25,15 @@ export const ACTIVITY_TYPE_VALUES = [
   "other",
 ] as const;
 
+export const DATA_SOURCE_VALUES = [
+  "manual",
+  "import",
+  "device",
+  "camera",
+  "speech",
+  "system",
+] as const;
+
 function isValidDateString(value: string): boolean {
   if (typeof value !== "string" || value.length === 0) return false;
   const parsed = new Date(value);

@@ -51,10 +51,6 @@ beforeEach(async () => {
   setSessionDataKey(encryptionKey);
 });
 
-// ---------------------------------------------------------------------------
-// Helper: seed test data
-// ---------------------------------------------------------------------------
-
 async function seedGlucose(overrides?: { value?: number; context?: string; measuredAt?: string; notes?: string }[]) {
   const defaults = [
     { value: 120, context: "fasting" as const, measuredAt: "2026-09-01T08:00:00Z", notes: "Jejum normal" },
@@ -119,10 +115,6 @@ async function seedAllData() {
   await seedActivities();
   await seedNotes();
 }
-
-// ===========================================================================
-// EXPORT TESTS
-// ===========================================================================
 
 describe("Data Ownership — Export", () => {
   describe("Empty database", () => {
@@ -343,10 +335,6 @@ describe("Data Ownership — Export", () => {
     });
   });
 });
-
-// ===========================================================================
-// IMPORT TESTS
-// ===========================================================================
 
 describe("Data Ownership — Import", () => {
   describe("JSON Import", () => {
@@ -757,43 +745,33 @@ describe("Data Ownership — Import", () => {
   });
 });
 
-// ===========================================================================
-// ROUND-TRIP TESTS
-// ===========================================================================
-
 describe("Data Ownership — Round-trip", () => {
   describe("JSON round-trip", () => {
     it("export → import preserves data equivalence", async () => {
       await seedAllData();
 
-      // Export
       const options: ExportOptions = {
         format: "json",
         scope: { glucose: true, meals: true, activities: true, notes: true },
       };
       const file = await exportAsJson(TEST_USER_ID, options);
 
-      // Clear database
       await deleteUserHealthData(TEST_USER_ID);
 
-      // Verify empty
       const emptyGlucose = await glucoseRepository.findByUser(TEST_USER_ID);
       expect(emptyGlucose.length).toBe(0);
 
-      // Parse exported file
       const prepared = await dataOwnershipService.prepareImport(
         new File([file.content], file.fileName, { type: file.mimeType })
       );
       expect(prepared.fileKind).toBe("json");
 
-      // Import
       const result = await dataOwnershipService.importUserData(
         TEST_USER_ID,
         prepared.normalizedData
       );
       expect(result.totalImported).toBe(9);
 
-      // Verify restored data
       const restoredGlucose = await glucoseRepository.findByUser(TEST_USER_ID);
       const restoredMeals = await mealRepository.findByUser(TEST_USER_ID);
       const restoredActivities = await activityRepository.findByUser(TEST_USER_ID);
@@ -804,7 +782,7 @@ describe("Data Ownership — Round-trip", () => {
       expect(restoredActivities.length).toBe(2);
       expect(restoredNotes.length).toBe(2);
 
-      // Verify values are preserved (order may differ after re-import)
+      // Order may differ after re-import.
       const glucoseValues = restoredGlucose.map((g) => g.value);
       expect(glucoseValues).toContain(120);
       expect(glucoseValues).toContain(180);
@@ -813,6 +791,42 @@ describe("Data Ownership — Round-trip", () => {
       expect(mealDescriptions).toContain("Pão com ovo");
       expect(restoredActivities.length).toBe(2);
       expect(restoredNotes.length).toBe(2);
+    });
+
+    it("export → import preserves the original provenance source on re-import", async () => {
+      await glucoseRepository.create({
+        userId: TEST_USER_ID,
+        value: 145,
+        unit: "mg/dL",
+        context: "fasting",
+        measuredAt: "2026-09-01T08:00:00Z",
+        provenance: {
+          source: "device",
+          sourceId: "device-sensor-01",
+          recordedAt: "2026-09-01T08:00:00Z",
+        },
+      });
+
+      const file = await exportAsJson(TEST_USER_ID, {
+        format: "json",
+        scope: { glucose: true, meals: false, activities: false, notes: false },
+      });
+
+      await deleteUserHealthData(TEST_USER_ID);
+
+      const prepared = await dataOwnershipService.prepareImport(
+        new File([file.content], file.fileName, { type: file.mimeType })
+      );
+      const result = await dataOwnershipService.importUserData(
+        TEST_USER_ID,
+        prepared.normalizedData
+      );
+      expect(result.totalImported).toBe(1);
+
+      const restored = await glucoseRepository.findByUser(TEST_USER_ID);
+      expect(restored).toHaveLength(1);
+      expect(restored[0].provenance?.source).toBe("device");
+      expect(restored[0].provenance?.sourceId).toBe("device-sensor-01");
     });
   });
 
@@ -976,7 +990,6 @@ describe("Data Ownership — Round-trip", () => {
     it("skips duplicate records when importing existing backup", async () => {
       await seedAllData();
 
-      // Export
       const options: ExportOptions = {
         format: "json",
         scope: { glucose: true, meals: true, activities: true, notes: true },
@@ -997,10 +1010,6 @@ describe("Data Ownership — Round-trip", () => {
     });
   });
 });
-
-// ===========================================================================
-// DELETE TESTS
-// ===========================================================================
 
 describe("Data Ownership — Delete", () => {
   it("deletes all health data for a user", async () => {
@@ -1050,20 +1059,12 @@ describe("Data Ownership — Delete", () => {
   });
 });
 
-// ===========================================================================
-// SHARE SERVICE TESTS
-// ===========================================================================
-
 describe("Data Ownership — Share", () => {
   it("canShare returns a boolean without throwing", () => {
     const result = canShare();
     expect(typeof result).toBe("boolean");
   });
 });
-
-// ===========================================================================
-// SERVICE INTEGRATION TESTS
-// ===========================================================================
 
 describe("Data Ownership — Service", () => {
   it("defaultScope includes all data types", () => {
@@ -1111,10 +1112,6 @@ describe("Data Ownership — Service", () => {
     expect(preview.duplicateCount).toBe(0);
   });
 });
-
-// ===========================================================================
-// ENCRYPTION INTEGRATION TESTS
-// ===========================================================================
 
 describe("Data Ownership — Encryption Integration", () => {
   it("imported data is encrypted in IndexedDB", async () => {

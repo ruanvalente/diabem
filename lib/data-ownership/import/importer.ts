@@ -7,6 +7,7 @@ import { noteRepository } from "../../db/repositories/note.repository";
 import { encryptSensitiveFields } from "../../db/crypto-field";
 import type {
   ActivityType,
+  DataProvenance,
   GlucoseContext,
   MealType,
 } from "../../db/types";
@@ -28,6 +29,7 @@ import {
   deduplicateActivities,
   deduplicateNotes,
 } from "./deduplicator";
+import { recordAuditAsync } from "../../audit";
 
 /**
  * Reads a File object and returns its text content.
@@ -84,6 +86,8 @@ function normalizeFromExport(
         context: r.context,
         measuredAt: r.measuredAt,
         notes: r.notes,
+        sourceKey: r.sourceKey,
+        provenance: r.provenance,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
       })),
@@ -92,6 +96,7 @@ function normalizeFromExport(
         description: r.description,
         consumedAt: r.consumedAt,
         notes: r.notes,
+        provenance: r.provenance,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
       })),
@@ -100,11 +105,13 @@ function normalizeFromExport(
         durationMinutes: r.durationMinutes,
         startedAt: r.startedAt,
         notes: r.notes,
+        provenance: r.provenance,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
       })),
       notes: (data.notes ?? []).map((r) => ({
         content: r.content,
+        provenance: r.provenance,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
       })),
@@ -122,7 +129,6 @@ export async function buildImportPreview(
   fileKind: ImportFileKind,
   normalizedData: NormalizedImportData
 ): Promise<ImportPreview> {
-  // Load existing records for deduplication check
   const [existingGlucose, existingMeals, existingActivities, existingNotes] =
     await Promise.all([
       glucoseRepository.findByUser(userId),
@@ -169,18 +175,22 @@ export async function buildImportPreview(
  * Executes the import within a transaction.
  * Only imports unique records (deduplication already applied).
  *
+ * Stamps `data.imported` provenance on fresh records; records that already
+ * carry provenance (e.g. re-imported exports) keep their original origin.
+ *
  * IMPORTANT: All encryption is done BEFORE the transaction to avoid
  * PrematureCommitError in fake-indexeddb, which auto-commits transactions
  * when there are no pending IDB requests and the code yields via await.
  */
 export async function executeImport(
   userId: string,
-  normalizedData: NormalizedImportData
+  normalizedData: NormalizedImportData,
+  importProvenance?: { sourceId?: string }
 ): Promise<ImportResult> {
   const db = getDatabase();
   const errors: ImportValidationError[] = [];
+  const importedAt = new Date().toISOString();
 
-  // Step 1: Read existing records OUTSIDE the transaction
   const [curGlucose, curMeals, curActivities, curNotes] = await Promise.all([
     glucoseRepository.findByUser(userId),
     mealRepository.findByUser(userId),
@@ -193,8 +203,7 @@ export async function executeImport(
   const activitiesDedup = deduplicateActivities(normalizedData.activities, curActivities);
   const notesDedup = deduplicateNotes(normalizedData.notes, curNotes);
 
-  // Step 2: Pre-encrypt ALL records BEFORE opening the transaction
-  const glucoseRecords: Array<{ id: string; userId: string; value: number; unit: "mg/dL"; context: GlucoseContext; measuredAt: string; createdAt: string; updatedAt: string; notes?: string | EncryptedPayload }> = [];
+  const glucoseRecords: Array<{ id: string; userId: string; value: number; unit: "mg/dL"; context: GlucoseContext; measuredAt: string; createdAt: string; updatedAt: string; provenance?: DataProvenance; notes?: string | EncryptedPayload }> = [];
   for (const record of glucoseDedup.unique) {
     const { fields, encrypted } = await encryptSensitiveFields({ notes: record.notes });
     glucoseRecords.push({
@@ -204,6 +213,12 @@ export async function executeImport(
       unit: "mg/dL",
       context: record.context as GlucoseContext,
       measuredAt: record.measuredAt,
+      provenance: record.provenance ?? {
+        source: "import",
+        sourceId: importProvenance?.sourceId,
+        importedAt,
+        recordedAt: record.measuredAt,
+      },
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       notes: encrypted
@@ -212,7 +227,7 @@ export async function executeImport(
     });
   }
 
-  const mealRecords: Array<{ id: string; userId: string; type: MealType; description: string | EncryptedPayload; consumedAt: string; createdAt: string; updatedAt: string; notes?: string | EncryptedPayload }> = [];
+  const mealRecords: Array<{ id: string; userId: string; type: MealType; description: string | EncryptedPayload; consumedAt: string; createdAt: string; updatedAt: string; provenance?: DataProvenance; notes?: string | EncryptedPayload }> = [];
   for (const record of mealsDedup.unique) {
     const { fields, encrypted } = await encryptSensitiveFields({
       description: record.description,
@@ -226,6 +241,12 @@ export async function executeImport(
         ? (fields.description as string | EncryptedPayload) ?? ""
         : record.description,
       consumedAt: record.consumedAt,
+      provenance: record.provenance ?? {
+        source: "import",
+        sourceId: importProvenance?.sourceId,
+        importedAt,
+        recordedAt: record.consumedAt,
+      },
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       notes: encrypted
@@ -234,7 +255,7 @@ export async function executeImport(
     });
   }
 
-  const activityRecords: Array<{ id: string; userId: string; type: ActivityType; durationMinutes: number; startedAt: string; createdAt: string; updatedAt: string; notes?: string | EncryptedPayload }> = [];
+  const activityRecords: Array<{ id: string; userId: string; type: ActivityType; durationMinutes: number; startedAt: string; createdAt: string; updatedAt: string; provenance?: DataProvenance; notes?: string | EncryptedPayload }> = [];
   for (const record of activitiesDedup.unique) {
     const { fields, encrypted } = await encryptSensitiveFields({ notes: record.notes });
     activityRecords.push({
@@ -243,6 +264,12 @@ export async function executeImport(
       type: record.type as ActivityType,
       durationMinutes: record.durationMinutes,
       startedAt: record.startedAt,
+      provenance: record.provenance ?? {
+        source: "import",
+        sourceId: importProvenance?.sourceId,
+        importedAt,
+        recordedAt: record.startedAt,
+      },
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       notes: encrypted
@@ -251,7 +278,7 @@ export async function executeImport(
     });
   }
 
-  const noteRecords: Array<{ id: string; userId: string; content: string | EncryptedPayload; createdAt: string; updatedAt: string }> = [];
+  const noteRecords: Array<{ id: string; userId: string; content: string | EncryptedPayload; createdAt: string; updatedAt: string; provenance?: DataProvenance }> = [];
   for (const record of notesDedup.unique) {
     const { fields, encrypted } = await encryptSensitiveFields({ content: record.content });
     noteRecords.push({
@@ -260,6 +287,12 @@ export async function executeImport(
       content: encrypted
         ? (fields.content as string | EncryptedPayload) ?? ""
         : record.content,
+      provenance: record.provenance ?? {
+        source: "import",
+        sourceId: importProvenance?.sourceId,
+        importedAt,
+        recordedAt: record.createdAt,
+      },
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     });
@@ -270,26 +303,24 @@ export async function executeImport(
   let activitiesImported = 0;
   let notesImported = 0;
 
-  // Step 3: Transaction contains ONLY synchronous .add() calls — no await
-  // before the first request, preventing fake-indexeddb premature commit.
   await db.transaction(
     "rw",
     [db.glucoseReadings, db.meals, db.activities, db.notes],
     async () => {
       const glucoseTable = db.glucoseReadings as unknown as Dexie.Table<
-        { id: string; userId: string; value: number; unit: "mg/dL"; context: GlucoseContext; measuredAt: string; createdAt: string; updatedAt: string; notes?: string | EncryptedPayload },
+        { id: string; userId: string; value: number; unit: "mg/dL"; context: GlucoseContext; measuredAt: string; createdAt: string; updatedAt: string; provenance?: DataProvenance; notes?: string | EncryptedPayload },
         string
       >;
       const mealTable = db.meals as unknown as Dexie.Table<
-        { id: string; userId: string; type: MealType; description: string | EncryptedPayload; consumedAt: string; createdAt: string; updatedAt: string; notes?: string | EncryptedPayload },
+        { id: string; userId: string; type: MealType; description: string | EncryptedPayload; consumedAt: string; createdAt: string; updatedAt: string; provenance?: DataProvenance; notes?: string | EncryptedPayload },
         string
       >;
       const activityTable = db.activities as unknown as Dexie.Table<
-        { id: string; userId: string; type: ActivityType; durationMinutes: number; startedAt: string; createdAt: string; updatedAt: string; notes?: string | EncryptedPayload },
+        { id: string; userId: string; type: ActivityType; durationMinutes: number; startedAt: string; createdAt: string; updatedAt: string; provenance?: DataProvenance; notes?: string | EncryptedPayload },
         string
       >;
       const noteTable = db.notes as unknown as Dexie.Table<
-        { id: string; userId: string; content: string | EncryptedPayload; createdAt: string; updatedAt: string },
+        { id: string; userId: string; content: string | EncryptedPayload; createdAt: string; updatedAt: string; provenance?: DataProvenance },
         string
       >;
 
@@ -346,6 +377,8 @@ export async function executeImport(
       }
     }
   );
+
+  recordAuditAsync("data.imported", "user", userId);
 
   return {
     glucoseImported,

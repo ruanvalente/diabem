@@ -1,4 +1,5 @@
 import type { Activity, GlucoseReading, Meal, Note } from "../db/types";
+import type { DataSource } from "../db/types";
 import type { ActivityFilter } from "../db/repositories/activity.repository";
 import type { GlucoseReadingFilter } from "../db/repositories/glucose.repository";
 import type { MealFilter } from "../db/repositories/meal.repository";
@@ -15,6 +16,7 @@ export type SaveGlucoseInput = {
   context: GlucoseReading["context"];
   measuredAtLocal: string;
   notes?: string;
+  provenanceSource?: DataSource;
 };
 
 export type SaveMealInput = {
@@ -22,6 +24,7 @@ export type SaveMealInput = {
   description: string;
   consumedAtLocal: string;
   notes?: string;
+  provenanceSource?: DataSource;
 };
 
 export type SaveActivityInput = {
@@ -29,10 +32,12 @@ export type SaveActivityInput = {
   durationMinutes: number;
   startedAtLocal: string;
   notes?: string;
+  provenanceSource?: DataSource;
 };
 
 export type SaveNoteInput = {
   content: string;
+  provenanceSource?: DataSource;
 };
 
 export type UpdateGlucoseInput = Partial<SaveGlucoseInput>;

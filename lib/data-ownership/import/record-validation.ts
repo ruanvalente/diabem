@@ -19,6 +19,7 @@ import {
   GLUCOSE_CONTEXT_VALUES,
   MEAL_TYPE_VALUES,
   ACTIVITY_TYPE_VALUES,
+  DATA_SOURCE_VALUES,
 } from "../../db/schema";
 
 function isValidIsoDate(value: string): boolean {
@@ -31,6 +32,15 @@ const isoDateTime = z
   .string()
   .refine(isValidIsoDate, "Data inválida");
 
+export const provenanceSchema = z
+  .object({
+    source: z.enum(DATA_SOURCE_VALUES, { message: "Origem inválida" }),
+    sourceId: z.string().max(200, "Origem muito longa").optional(),
+    importedAt: isoDateTime.optional(),
+    recordedAt: isoDateTime,
+  })
+  .strict();
+
 export const glucoseRecordSchema = z
   .object({
     id: z.string().optional(),
@@ -40,6 +50,7 @@ export const glucoseRecordSchema = z
     measuredAt: isoDateTime,
     notes: z.string().max(MAX_NOTE_LENGTH, `Nota excede ${MAX_NOTE_LENGTH} caracteres`).optional(),
     sourceKey: z.string().optional(),
+    provenance: provenanceSchema.optional(),
     createdAt: isoDateTime,
     updatedAt: isoDateTime,
   })
@@ -56,6 +67,7 @@ export const mealRecordSchema = z
     consumedAt: isoDateTime,
     notes: z.string().max(MAX_NOTE_LENGTH, `Nota excede ${MAX_NOTE_LENGTH} caracteres`).optional(),
     sourceKey: z.string().optional(),
+    provenance: provenanceSchema.optional(),
     createdAt: isoDateTime,
     updatedAt: isoDateTime,
   })
@@ -73,6 +85,7 @@ export const activityRecordSchema = z
     startedAt: isoDateTime,
     notes: z.string().max(MAX_NOTE_LENGTH, `Nota excede ${MAX_NOTE_LENGTH} caracteres`).optional(),
     sourceKey: z.string().optional(),
+    provenance: provenanceSchema.optional(),
     createdAt: isoDateTime,
     updatedAt: isoDateTime,
   })
@@ -85,6 +98,7 @@ export const noteRecordSchema = z
       .string()
       .min(1, "Conteúdo vazio")
       .max(MAX_CONTENT_LENGTH, `Conteúdo excede ${MAX_CONTENT_LENGTH} caracteres`),
+    provenance: provenanceSchema.optional(),
     createdAt: isoDateTime,
     updatedAt: isoDateTime,
   })

@@ -1,8 +1,7 @@
 import type { Activity, GlucoseReading, Meal, Note } from "@/lib/db/types";
-import type { AnalysisPeriod } from "./analytics.types";
+import type { AnalysisPeriod, IntelligenceAnalytics, AnalyticsSnapshot } from "./analytics.types";
 import type { Insight } from "./insight.types";
 import type { Pattern } from "./rule.types";
-import type { IntelligenceAnalytics } from "./analytics.types";
 
 export type IntelligenceRequest = {
   type: "analyze";
@@ -40,4 +39,5 @@ export type IntelligenceResult = {
   analytics: IntelligenceAnalytics;
   patterns: Pattern[];
   insights: Insight[];
+  snapshot: AnalyticsSnapshot;
 };
