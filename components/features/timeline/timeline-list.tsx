@@ -9,15 +9,17 @@ import {
   TIMELINE_EVENT_LABELS,
 } from "@/lib/health/constants";
 import { getGlucoseRangeInfo } from "@/lib/health/glucose-range";
+import { formatMedicationDetails } from "@/lib/health/medication-display";
 import type { TimelineEvent, TimelineEventType } from "@/lib/health/types";
 import type { ReactNode } from "react";
-import { Apple, Activity as ActivityIcon, Droplets, NotebookPen } from "lucide-react";
+import { Apple, Activity as ActivityIcon, Droplets, NotebookPen, Pill } from "lucide-react";
 
 const TYPE_ICONS: Record<TimelineEventType, typeof Droplets> = {
   glucose: Droplets,
   meal: Apple,
   activity: ActivityIcon,
   note: NotebookPen,
+  medication: Pill,
 };
 
 function EventIcon({ type }: { type: TimelineEventType }) {
@@ -112,6 +114,27 @@ function TimelineRow({ event }: { event: TimelineEvent }) {
           </div>
         </div>
       );
+    case "medication": {
+      const details = formatMedicationDetails(event.data);
+      return (
+        <div className="flex items-start gap-3 p-4">
+          <EventIcon type="medication" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground">
+              {event.data.name}{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                {formatTime(event.at)}
+              </span>
+            </p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {TIMELINE_EVENT_LABELS.medication}
+              {details ? ` · ${details}` : ""}
+              {event.data.notes ? ` · ${event.data.notes}` : ""}
+            </p>
+          </div>
+        </div>
+      );
+    }
   }
 }
 

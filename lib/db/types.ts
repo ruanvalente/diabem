@@ -113,3 +113,30 @@ export type Note = {
   createdAt: string;
   updatedAt: string;
 };
+
+/**
+ * A single medication intake record (Sprint 12). Follows the same lifecycle as
+ * the other record types: user-scoped, timestamped, optional provenance.
+ *
+ * `dosage` is stored as the value the user typed (e.g. "500" or "10"); `unit`
+ * ("mg", "ml", "unidades"), `frequency` ("2x ao dia") and `route` ("oral",
+ * "subcutânea") are free-form. The app deliberately does NOT judge clinical
+ * adequacy — it stores what the user informed.
+ *
+ * `medicatedAt` is persisted in ISO 8601 UTC and rendered in the user's own
+ * timezone, matching `measuredAt`/`consumedAt`/`startedAt` on other records.
+ */
+export type Medication = {
+  id: string;
+  userId: string;
+  name: string;
+  dosage?: string;
+  unit?: string;
+  frequency?: string;
+  route?: string;
+  medicatedAt: string;
+  notes?: string;
+  provenance?: DataProvenance;
+  createdAt: string;
+  updatedAt: string;
+};

@@ -33,7 +33,9 @@ test("dashboard explains why an insight was generated", async ({ page }) => {
 
   await expect(page.getByText("Qualidade dos dados")).toBeVisible();
   await expect(page.getByText("Padrões observados")).toBeVisible();
-  await expect(page.getByText("Dados insuficientes")).toBeVisible();
+  await expect(
+    page.getByText("Dados insuficientes", { exact: true }),
+  ).toBeVisible();
 
   await page
     .getByRole("button", { name: /por que estou vendo isso/i })

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { GlucoseReading, Meal, Activity, Note } from "@/lib/db/types";
+import type { GlucoseReading, Meal, Activity, Note, Medication } from "@/lib/db/types";
 import {
   computeGlucoseStatistics,
   computeActivityStatistics,
   computeMealStatistics,
   computeNoteStatistics,
+  computeMedicationStatistics,
 } from "./statistics";
 
 function glucoseReading(
@@ -65,6 +66,24 @@ function note(id: string, content = "Test note"): Note {
     content,
     createdAt: at,
     updatedAt: at,
+  };
+}
+
+function medication(
+  id: string,
+  name: string,
+  medicatedAt?: string,
+  overrides: Partial<Medication> = {}
+): Medication {
+  const at = medicatedAt ?? new Date().toISOString();
+  return {
+    id,
+    userId: "u",
+    name,
+    medicatedAt: at,
+    createdAt: at,
+    updatedAt: at,
+    ...overrides,
   };
 }
 
@@ -255,5 +274,84 @@ describe("computeNoteStatistics", () => {
     const stats = computeNoteStatistics(notes);
     expect(stats.totalCount).toBe(3);
     expect(stats.hasEnoughData).toBe(true);
+  });
+});
+
+describe("computeMedicationStatistics", () => {
+  it("returns default values for empty array", () => {
+    const stats = computeMedicationStatistics([]);
+    expect(stats.totalCount).toBe(0);
+    expect(stats.distinctCount).toBe(0);
+    expect(stats.byRoute).toHaveLength(0);
+    expect(stats.byName).toHaveLength(0);
+    expect(stats.distributionByTimeOfDay.total).toBe(0);
+    expect(stats.hasEnoughData).toBe(false);
+  });
+
+  it("counts records and distinct medications", () => {
+    const stats = computeMedicationStatistics([
+      medication("1", "Metformina", "2026-09-01T08:00:00Z", { route: "oral" }),
+      medication("2", "Metformina", "2026-09-01T20:00:00Z", { route: "oral" }),
+      medication("3", "Ibuprofeno", "2026-09-02T14:00:00Z"),
+    ]);
+    expect(stats.totalCount).toBe(3);
+    expect(stats.distinctCount).toBe(2);
+    expect(stats.hasEnoughData).toBe(true);
+  });
+
+  it("groups by route and labels empty routes as unspecified", () => {
+    const stats = computeMedicationStatistics([
+      medication("1", "Metformina", "2026-09-01T08:00:00Z", { route: "oral" }),
+      medication("2", "Sinvastatina", "2026-09-01T09:00:00Z", {
+        route: "oral",
+      }),
+      medication("3", "Ibuprofeno", "2026-09-02T14:00:00Z"),
+      medication("4", "Insulina", "2026-09-02T15:00:00Z", { route: "injeção" }),
+    ]);
+    expect(stats.byRoute).toHaveLength(3);
+
+    const oral = stats.byRoute.find((r) => r.route === "oral");
+    expect(oral?.count).toBe(2);
+
+    const unspecified = stats.byRoute.find((r) => r.route === "");
+    expect(unspecified?.label).toBe("Não informada");
+    expect(unspecified?.count).toBe(1);
+  });
+
+  it("sorts medications by count, then name", () => {
+    const stats = computeMedicationStatistics([
+      medication("1", "Zolpidem", "2026-09-01T08:00:00Z"),
+      medication("2", "Metformina", "2026-09-01T09:00:00Z"),
+      medication("3", "Metformina", "2026-09-02T09:00:00Z"),
+    ]);
+    expect(stats.byName.map((item) => item.name)).toEqual([
+      "Metformina",
+      "Zolpidem",
+    ]);
+    expect(stats.byName[0].count).toBe(2);
+  });
+
+  it("distributes medications by time of day", () => {
+    const now = new Date();
+    const baseDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const morning = new Date(
+      baseDate.getTime() + 8 * 60 * 60 * 1000
+    ).toISOString();
+    const afternoon = new Date(
+      baseDate.getTime() + 14 * 60 * 60 * 1000
+    ).toISOString();
+    const evening = new Date(
+      baseDate.getTime() + 20 * 60 * 60 * 1000
+    ).toISOString();
+
+    const stats = computeMedicationStatistics([
+      medication("1", "Metformina", morning, { route: "oral" }),
+      medication("2", "Ibuprofeno", afternoon),
+      medication("3", "Sinvastatina", evening),
+    ]);
+    expect(stats.distributionByTimeOfDay.total).toBe(3);
+    expect(stats.distributionByTimeOfDay.items[0].count).toBe(1); // morning
+    expect(stats.distributionByTimeOfDay.items[1].count).toBe(1); // afternoon
+    expect(stats.distributionByTimeOfDay.items[2].count).toBe(1); // evening
   });
 });

@@ -21,6 +21,7 @@ const DEFAULT_SCOPE: ExportScope = {
   meals: true,
   activities: true,
   notes: true,
+  medications: true,
 };
 
 type PreparedImport = {

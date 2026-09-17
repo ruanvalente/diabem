@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assessRecord, assessDataset, levelFromScore } from "./quality-engine";
-import type { GlucoseReading, Meal, Activity } from "@/lib/db/types";
+import type { GlucoseReading, Meal, Activity, Medication } from "@/lib/db/types";
 
 function buildGlucose(overrides: Partial<GlucoseReading> = {}): GlucoseReading {
   return {
@@ -45,6 +45,73 @@ function buildActivity(overrides: Partial<Activity> = {}): Activity {
     ...overrides,
   };
 }
+
+function buildMedication(overrides: Partial<Medication> = {}): Medication {
+  return {
+    id: "med1",
+    userId: "u",
+    name: "Metformina",
+    dosage: "500",
+    unit: "mg",
+    frequency: "2x ao dia",
+    route: "oral",
+    medicatedAt: new Date().toISOString(),
+    notes: "Tomar com café",
+    provenance: { source: "manual", recordedAt: new Date().toISOString() },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+describe("assessRecord — medication", () => {
+  it("returns high quality for a valid, complete record", () => {
+    const result = assessRecord({ kind: "medication", data: buildMedication() });
+    expect(result.level).toBe("high");
+    expect(result.score).toBe(1);
+    expect(result.issues).toHaveLength(0);
+  });
+
+  it("flags unknown provenance", () => {
+    const record = buildMedication({ provenance: undefined });
+    const result = assessRecord({ kind: "medication", data: record });
+    expect(result.level).toBe("medium");
+    expect(result.issues.map((i) => i.code)).toContain("unknown_provenance");
+  });
+
+  it("flags missing name", () => {
+    const record = buildMedication({ name: "" });
+    const result = assessRecord({ kind: "medication", data: record });
+    expect(result.issues.map((i) => i.code)).toContain("missing_required_field");
+  });
+
+  it("flags future timestamps", () => {
+    const record = buildMedication({
+      medicatedAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    const result = assessRecord({ kind: "medication", data: record });
+    expect(result.issues.map((i) => i.code)).toContain("future_timestamp");
+  });
+
+  it("flags invalid timestamps", () => {
+    const record = buildMedication({ medicatedAt: "not-a-date" });
+    const result = assessRecord({ kind: "medication", data: record });
+    expect(result.issues.map((i) => i.code)).toContain("invalid_timestamp");
+  });
+
+  it("assigns high quality to imported data with valid provenance", () => {
+    const record = buildMedication({
+      provenance: {
+        source: "import",
+        sourceId: "file-1",
+        importedAt: new Date().toISOString(),
+        recordedAt: new Date().toISOString(),
+      },
+    });
+    const result = assessRecord({ kind: "medication", data: record });
+    expect(result.level).toBe("high");
+  });
+});
 
 describe("assessRecord — glucose", () => {
   it("returns high quality for a valid, complete record", () => {
@@ -137,6 +204,27 @@ describe("assessDataset", () => {
     };
     const results = assessDataset(records);
     expect(results).toHaveLength(4);
+  });
+
+  it("includes medications in dataset assessment", () => {
+    const records = {
+      glucose: [buildGlucose()],
+      meals: [buildMeal()],
+      activities: [buildActivity()],
+      medications: [buildMedication(), buildMedication({ id: "med2", name: "" })],
+    };
+    const results = assessDataset(records);
+    expect(results).toHaveLength(5);
+  });
+
+  it("handles missing medications array in dataset", () => {
+    const records = {
+      glucose: [buildGlucose()],
+      meals: [buildMeal()],
+      activities: [buildActivity()],
+    };
+    const results = assessDataset(records);
+    expect(results).toHaveLength(3);
   });
 });
 

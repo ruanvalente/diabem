@@ -2,6 +2,7 @@ import type {
   Activity,
   GlucoseReading,
   Meal,
+  Medication,
   Note,
 } from "../../db/types";
 
@@ -33,6 +34,7 @@ export type ImportPreview = {
   mealsCount: number;
   activitiesCount: number;
   notesCount: number;
+  medicationsCount: number;
   totalRecords: number;
   duplicateCount: number;
   errorCount: number;
@@ -44,6 +46,7 @@ export type ImportResult = {
   mealsImported: number;
   activitiesImported: number;
   notesImported: number;
+  medicationsImported: number;
   totalImported: number;
   duplicatesSkipped: number;
   errors: ImportValidationError[];
@@ -58,10 +61,12 @@ export type NormalizedGlucose = Omit<GlucoseReading, "userId" | "id">;
 export type NormalizedMeal = Omit<Meal, "userId" | "id">;
 export type NormalizedActivity = Omit<Activity, "userId" | "id">;
 export type NormalizedNote = Omit<Note, "userId" | "id">;
+export type NormalizedMedication = Omit<Medication, "userId" | "id">;
 
 export type NormalizedImportData = {
   glucose: NormalizedGlucose[];
   meals: NormalizedMeal[];
   activities: NormalizedActivity[];
   notes: NormalizedNote[];
+  medications: NormalizedMedication[];
 };

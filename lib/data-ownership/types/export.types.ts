@@ -2,6 +2,7 @@ import type {
   Activity,
   GlucoseReading,
   Meal,
+  Medication,
   Note,
 } from "../../db/types";
 
@@ -12,6 +13,7 @@ export type ExportScope = {
   meals: boolean;
   activities: boolean;
   notes: boolean;
+  medications: boolean;
 };
 
 export type ExportPeriodFilter = {
@@ -40,6 +42,7 @@ export type DiaBemExport = {
     meals: MealExportRecord[];
     activities: ActivityExportRecord[];
     notes: NoteExportRecord[];
+    medications: MedicationExportRecord[];
   };
 };
 
@@ -48,6 +51,7 @@ export type GlucoseExportRecord = Omit<GlucoseReading, "userId">;
 export type MealExportRecord = Omit<Meal, "userId">;
 export type ActivityExportRecord = Omit<Activity, "userId">;
 export type NoteExportRecord = Omit<Note, "userId">;
+export type MedicationExportRecord = Omit<Medication, "userId">;
 
 export const CURRENT_EXPORT_VERSION = 1;
 export const APPLICATION_NAME = "DiaBem";

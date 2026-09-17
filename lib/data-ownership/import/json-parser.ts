@@ -1,4 +1,4 @@
-import type { DiaBemExport, GlucoseExportRecord, MealExportRecord, ActivityExportRecord, NoteExportRecord } from "../types/export.types";
+import type { DiaBemExport, GlucoseExportRecord, MealExportRecord, ActivityExportRecord, NoteExportRecord, MedicationExportRecord } from "../types/export.types";
 import { CURRENT_EXPORT_VERSION, APPLICATION_NAME } from "../types/export.types";
 import type { ImportValidationError } from "../types/import.types";
 import {
@@ -6,6 +6,7 @@ import {
   mealRecordSchema,
   activityRecordSchema,
   noteRecordSchema,
+  medicationRecordSchema,
   validateRecordArray,
 } from "./record-validation";
 
@@ -78,6 +79,7 @@ export function parseJsonImport(content: string): JsonParseResult {
   let mealRecords: unknown[] = [];
   let activityRecords: unknown[] = [];
   let noteRecords: unknown[] = [];
+  let medicationRecords: unknown[] = [];
 
   if (typeof obj.data !== "object" || obj.data === null) {
     errors.push({ recordIndex: -1, field: "data", message: "Campo 'data' ausente." });
@@ -113,6 +115,18 @@ export function parseJsonImport(content: string): JsonParseResult {
     } else {
       noteRecords = validateRecordArray<NoteExportRecord>(data.notes, noteRecordSchema, "Nota", errors);
     }
+    // `data.medications` is additive: exports created before medication records
+    // existed (same version) omit the key, which is treated as an empty list.
+    if (data.medications !== undefined && !Array.isArray(data.medications)) {
+      errors.push({ recordIndex: -1, field: "data.medications", message: "Campo 'data.medications' inválido." });
+    } else if (data.medications !== undefined) {
+      medicationRecords = validateRecordArray<MedicationExportRecord>(
+        data.medications,
+        medicationRecordSchema,
+        "Medicamento",
+        errors,
+      );
+    }
   }
 
   if (errors.length > 0) {
@@ -130,6 +144,7 @@ export function parseJsonImport(content: string): JsonParseResult {
         meals: mealRecords,
         activities: activityRecords,
         notes: noteRecords,
+        medications: medicationRecords,
       },
     } as DiaBemExport,
   };

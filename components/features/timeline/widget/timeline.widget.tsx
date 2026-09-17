@@ -21,6 +21,7 @@ const TYPE_OPTIONS: { value: TimelineEventType; label: string }[] = [
   { value: "meal", label: TIMELINE_EVENT_LABELS.meal },
   { value: "activity", label: TIMELINE_EVENT_LABELS.activity },
   { value: "note", label: TIMELINE_EVENT_LABELS.note },
+  { value: "medication", label: TIMELINE_EVENT_LABELS.medication },
 ];
 
 export function TimelineWidget() {
@@ -86,7 +87,7 @@ export function TimelineWidget() {
               description={
                 hasActiveFilters
                   ? "Não há registros para o período e tipos selecionados. Ajuste o filtro para encontrar mais resultados."
-                  : "Seus registros de glicemia, refeições, atividades e observações vão aparecer aqui em ordem cronológica."
+                  : "Seus registros de glicemia, refeições, atividades, observações e medicamentos vão aparecer aqui em ordem cronológica."
               }
             />
           }

@@ -3,7 +3,7 @@ import { clearReminders } from "../browser/reminders/reminder.service";
 import { recordAuditAsync } from "../audit";
 
 /**
- * Deletes all health-data records for a single user across the four data
+ * Deletes all health-data records for a single user across the five data
  * tables, the device registry, sync history, audit trail and the user's
  * sessions (which logs them out). Everything runs in a single Dexie
  * transaction, so no partial deletion can occur.
@@ -24,6 +24,7 @@ export async function deleteUserHealthData(userId: string): Promise<void> {
       db.meals,
       db.activities,
       db.notes,
+      db.medications,
       db.devices,
       db.syncHistory,
       db.auditTrail,
@@ -35,6 +36,7 @@ export async function deleteUserHealthData(userId: string): Promise<void> {
         db.meals.where("userId").equals(userId).delete(),
         db.activities.where("userId").equals(userId).delete(),
         db.notes.where("userId").equals(userId).delete(),
+        db.medications.where("userId").equals(userId).delete(),
         db.devices.where("userId").equals(userId).delete(),
         db.syncHistory.where("userId").equals(userId).delete(),
         db.auditTrail.where("userId").equals(userId).delete(),

@@ -7,6 +7,7 @@ const ROUTES: Record<string, string> = {
   "/meals": "Refeições",
   "/activity": "Atividade",
   "/notes": "Observações",
+  "/medications": "Medicamentos",
   "/statistics": "Estatísticas",
   "/reports": "Relatórios",
   "/settings": "Configurações",

@@ -12,6 +12,7 @@ export {
   deduplicateMeals,
   deduplicateActivities,
   deduplicateNotes,
+  deduplicateMedications,
 } from "./deduplicator";
 
 export { normalizeImportData } from "./normalizer";

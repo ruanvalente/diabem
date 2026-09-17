@@ -8,7 +8,12 @@ export type QuickAction = {
   color: string;
 };
 
-export type SummaryHref = "/glucose" | "/meals" | "/activity" | "/notes";
+export type SummaryHref =
+  | "/glucose"
+  | "/meals"
+  | "/activity"
+  | "/notes"
+  | "/medications";
 
 export type SummaryCard = {
   href: SummaryHref;

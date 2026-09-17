@@ -4,6 +4,7 @@ import type {
   GlucoseReading,
   LocalSession,
   Meal,
+  Medication,
   Note,
   User,
 } from "./types";
@@ -14,7 +15,7 @@ import type {
 import type { AuditEntry } from "../audit/audit.types";
 
 const DB_NAME = "diabem";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 class DiaBemDatabase extends Dexie {
   users!: Table<User, string>;
@@ -23,6 +24,8 @@ class DiaBemDatabase extends Dexie {
   meals!: Table<Meal, string>;
   activities!: Table<Activity, string>;
   notes!: Table<Note, string>;
+  /** Medication intake records (Sprint 12). */
+  medications!: Table<Medication, string>;
   /** Registered devices (Device Registry). */
   devices!: Table<ConnectedDevice, string>;
   /** Device sync history for the current user. */
@@ -64,6 +67,7 @@ class DiaBemDatabase extends Dexie {
       meals: "id, userId, [userId+consumedAt], [userId+type]",
       activities: "id, userId, [userId+startedAt], [userId+type]",
       notes: "id, userId, [userId+createdAt]",
+      medications: "id, userId, [userId+medicatedAt]",
       devices: "id, userId, adapterId, transport, lastSyncAt",
       syncHistory: "id, userId, deviceId, syncedAt",
       auditTrail: "id, userId, [userId+timestamp], entity, entityId, action",

@@ -142,3 +142,40 @@ export const noteSchema = z.object({
 });
 
 export type NoteInput = z.infer<typeof noteSchema>;
+
+/** Decimal dosage format (e.g. "500", "10", "1,5"). Stored as typed. */
+const dosagePattern = /^\d+(?:[.,]\d+)?$/;
+
+const optionalDosageField = z
+  .string()
+  .max(30, "Dosagem muito longa")
+  .transform((value) => (value.trim() === "" ? undefined : value.trim()))
+  .refine((value) => value === undefined || dosagePattern.test(value), {
+    message: "Dosagem com formato inválido",
+  })
+  .optional();
+
+const optionalMedicationTextField = z
+  .string()
+  .trim()
+  .max(100, "Campo muito longo")
+  .transform((value) => (value === "" ? undefined : value))
+  .optional();
+
+export const medicationSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Informe o nome do medicamento")
+    .max(100, "Nome muito longo"),
+  dosage: optionalDosageField,
+  unit: optionalMedicationTextField,
+  frequency: optionalMedicationTextField,
+  route: optionalMedicationTextField,
+  medicatedAt: z
+    .string()
+    .refine(isValidDateString, { message: "Data e horário inválidos" }),
+  notes: optionalNotesField,
+});
+
+export type MedicationInput = z.infer<typeof medicationSchema>;

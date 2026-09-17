@@ -7,6 +7,7 @@ export {
   serializeMealsToCsv,
   serializeActivitiesToCsv,
   serializeNotesToCsv,
+  serializeMedicationsToCsv,
 } from "./export";
 export {
   readFileContent,
@@ -19,6 +20,7 @@ export {
   deduplicateMeals,
   deduplicateActivities,
   deduplicateNotes,
+  deduplicateMedications,
   normalizeImportData,
 } from "./import";
 export { canShare, shareFile } from "./share";
