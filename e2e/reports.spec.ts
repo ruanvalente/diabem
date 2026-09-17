@@ -35,7 +35,7 @@ test("generates a report from seeded data and shows the summary", async ({
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Gerar relatório" }).click();
-  await expect(page.getByText("Relatório gerado com sucesso.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "PDF", exact: true })).toBeVisible();
 
   await expect(page.getByText("Relatório — Últimos 7 dias")).toBeVisible();
   await expect(page.getByText("1", { exact: true }).first()).toBeVisible();
@@ -48,7 +48,7 @@ test("exports the report as CSV and PDF via download", async ({ page }) => {
 
   await goTo(page, "/reports");
   await page.getByRole("button", { name: "Gerar relatório" }).click();
-  await expect(page.getByText("Relatório gerado com sucesso.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "PDF", exact: true })).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "CSV", exact: true }).click();
@@ -70,5 +70,5 @@ test("filters categories before generating", async ({ page }) => {
   await mealsCheckbox.uncheck();
 
   await page.getByRole("button", { name: "Gerar relatório" }).click();
-  await expect(page.getByText("Relatório gerado com sucesso.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "PDF", exact: true })).toBeVisible();
 });
