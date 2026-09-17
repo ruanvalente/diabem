@@ -48,22 +48,21 @@ export function downloadFile(file: ShareableFile): void {
  */
 export async function shareFile(file: ShareableFile): Promise<ShareResult> {
   if (canShare()) {
-    try {
-      const shareData: ShareData = {
-        title: file.fileName,
-        files: [toFile(file)],
-      };
+    const shareData: ShareData = {
+      title: file.fileName,
+      files: [toFile(file)],
+    };
 
-      if (navigator.canShare && navigator.canShare(shareData)) {
+    if (navigator.canShare && navigator.canShare(shareData)) {
+      try {
         await navigator.share(shareData);
         return { ok: true, method: "share" };
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return { ok: false, cancelled: true };
+        }
+        throw error;
       }
-    } catch (error) {
-      // AbortError means the user cancelled — not a failure.
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return { ok: false, cancelled: true };
-      }
-      // Other errors fall through to download fallback.
     }
   }
 

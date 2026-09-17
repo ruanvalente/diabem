@@ -7,6 +7,7 @@ import { formatDateLong, formatTime } from "@/lib/date";
 type ReportPreviewProps = {
   data: ReportData;
   periodLabel: string;
+  canShareFile: boolean;
   onExportPdf: () => void;
   onExportCsv: () => void;
   onExportJson: () => void;
@@ -23,12 +24,13 @@ const TYPE_COLORS: Record<string, string> = {
 export function ReportPreview({
   data,
   periodLabel,
+  canShareFile,
   onExportPdf,
   onExportCsv,
   onExportJson,
   onShare,
 }: ReportPreviewProps) {
-  const s = data.summary;
+  const summary = data.summary;
   const timelineSlice = data.timeline.slice(0, 10);
 
   return (
@@ -44,23 +46,23 @@ export function ReportPreview({
           <div className="rounded-xl bg-muted/50 p-3">
             <p className="text-xs text-muted-foreground">Glicemias</p>
             <p className="text-lg font-bold text-foreground">
-              {s.glucoseCount}
+              {summary.glucoseCount}
             </p>
           </div>
           <div className="rounded-xl bg-muted/50 p-3">
             <p className="text-xs text-muted-foreground">Média</p>
             <p className="text-lg font-bold text-foreground">
-              {s.glucoseAverage != null ? `${s.glucoseAverage} mg/dL` : "—"}
+              {summary.glucoseAverage != null ? `${summary.glucoseAverage} mg/dL` : "—"}
             </p>
           </div>
           <div className="rounded-xl bg-muted/50 p-3">
             <p className="text-xs text-muted-foreground">Refeições</p>
-            <p className="text-lg font-bold text-foreground">{s.mealCount}</p>
+            <p className="text-lg font-bold text-foreground">{summary.mealCount}</p>
           </div>
           <div className="rounded-xl bg-muted/50 p-3">
             <p className="text-xs text-muted-foreground">Atividades</p>
             <p className="text-lg font-bold text-foreground">
-              {s.activityCount}
+              {summary.activityCount}
             </p>
           </div>
         </div>
@@ -130,7 +132,7 @@ export function ReportPreview({
           </Button>
           <Button variant="outline" className="flex-1 gap-2" onClick={onShare}>
             <Share2 className="size-4" />
-            Compartilhar
+            {canShareFile ? "Compartilhar" : "Baixar arquivo"}
           </Button>
         </div>
       </CardContent>
