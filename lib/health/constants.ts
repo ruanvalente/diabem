@@ -59,4 +59,5 @@ export const TIMELINE_EVENT_LABELS = {
   meal: "Refeição",
   activity: "Atividade física",
   note: "Observação",
+  medication: "Medicamento",
 } as const;

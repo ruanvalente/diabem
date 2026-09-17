@@ -21,6 +21,7 @@ const DEFAULT_SCOPE: ExportScope = {
   meals: true,
   activities: true,
   notes: true,
+  medications: true,
 };
 
 type PreparedImport = {
@@ -112,8 +113,12 @@ export const dataOwnershipService = {
   },
 
   /** Executes the confirmed import (merge mode). */
-  importUserData(userId: string, normalizedData: NormalizedImportData) {
-    return executeImport(userId, normalizedData);
+  importUserData(
+    userId: string,
+    normalizedData: NormalizedImportData,
+    sourceId?: string
+  ) {
+    return executeImport(userId, normalizedData, { sourceId });
   },
 
   /** Deletes all health-data records for the current user. */

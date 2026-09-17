@@ -9,6 +9,9 @@ import {
   MAX_NOTE_LENGTH,
   MAX_DESCRIPTION_LENGTH,
   MAX_CONTENT_LENGTH,
+  MAX_MEDICATION_NAME_LENGTH,
+  MAX_MEDICATION_DOSAGE_LENGTH,
+  MAX_MEDICATION_TEXT_LENGTH,
 } from "../../security/sanitization/text";
 
 /**
@@ -102,6 +105,8 @@ function unescapeCsvInjectionGuard(value: string): string {
 /**
  * Validates that a text field does not exceed a given length cap.
  * Returns the trimmed value, or `undefined` and pushes an error if over limit.
+ * This is the lenient variant: an over-limit value only drops the field, never
+ * the row (used for free-text fields such as `notes`).
  */
 function cappedTextField(
   value: string,
@@ -121,6 +126,37 @@ function cappedTextField(
     return undefined;
   }
   return trimmed;
+}
+
+type CappedFieldResult =
+  | { value?: string; invalid: false }
+  | { invalid: true };
+
+/**
+ * Strict variant of `cappedTextField` for the medication unit/frequency/route.
+ * Empty values yield no field; over-limit values push an error and mark the
+ * row as `invalid` so the caller drops the whole record — these fields belong
+ * to the medication's clinical identity and an oversized value is not imported
+ * partially, unlike `notes` where only the field is dropped.
+ */
+function requiredCappedTextField(
+  raw: string,
+  maxLength: number,
+  fieldName: string,
+  recordIndex: number,
+  errors: ImportValidationError[],
+): CappedFieldResult {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return { invalid: false };
+  if (trimmed.length > maxLength) {
+    errors.push({
+      recordIndex,
+      field: fieldName,
+      message: `Texto excede o limite de ${maxLength} caracteres.`,
+    });
+    return { invalid: true };
+  }
+  return { value: trimmed, invalid: false };
 }
 
 type CsvParseResult =
@@ -151,6 +187,7 @@ export function parseCsvImport(content: string): CsvParseResult {
     meals: [],
     activities: [],
     notes: [],
+    medications: [],
   };
 
   if (headers.includes("value") && headers.includes("context")) {
@@ -161,6 +198,8 @@ export function parseCsvImport(content: string): CsvParseResult {
     parseActivityRows(headers, dataRows, data, errors);
   } else if (headers.includes("content")) {
     parseNoteRows(headers, dataRows, data, errors);
+  } else if (headers.includes("name")) {
+    parseMedicationRows(headers, dataRows, data, errors);
   } else {
     return {
       ok: false,
@@ -172,7 +211,8 @@ export function parseCsvImport(content: string): CsvParseResult {
     data.glucose.length +
     data.meals.length +
     data.activities.length +
-    data.notes.length;
+    data.notes.length +
+    data.medications.length;
 
   return { ok: totalParsed > 0, data, errors };
 }
@@ -373,6 +413,103 @@ function parseNoteRows(
     data.notes.push({
       content: contentRaw,
       createdAt: isValidDate(createdAt) ? createdAt : new Date().toISOString(),
+      updatedAt: isValidDate(updatedAt) ? updatedAt : createdAt,
+    });
+  });
+}
+
+/** Decimal dosage format (e.g. "500", "10", "1,5"). Mirrors `medicationSchema`. */
+const medicationDosagePattern = /^\d+(?:[.,]\d+)?$/;
+
+function parseMedicationRows(
+  headers: string[],
+  rows: string[][],
+  data: NormalizedImportData,
+  errors: ImportValidationError[]
+): void {
+  const tsIdx = getTimestampCol(headers, "medicatedat");
+  const nameIdx = getCol(headers, "name");
+  const dosageIdx = getCol(headers, "dosage");
+  const unitIdx = getCol(headers, "unit");
+  const frequencyIdx = getCol(headers, "frequency");
+  const routeIdx = getCol(headers, "route");
+  const notesIdx = getCol(headers, "notes");
+  const createdIdx = getCol(headers, "createdat");
+  const updatedIdx = getCol(headers, "updatedat");
+
+  rows.forEach((row, i) => {
+    const recordIndex = i + 2;
+
+    const name = row[nameIdx] ? unescapeCsvInjectionGuard(row[nameIdx]).trim() : "";
+    if (name.length < 1) {
+      errors.push({ recordIndex, field: "name", message: "Nome do medicamento vazio." });
+      return;
+    }
+    if (name.length > MAX_MEDICATION_NAME_LENGTH) {
+      errors.push({ recordIndex, field: "name", message: `Nome excede o limite de ${MAX_MEDICATION_NAME_LENGTH} caracteres.` });
+      return;
+    }
+
+    const timestamp = row[tsIdx]?.trim();
+    if (!timestamp || !isValidDate(timestamp)) {
+      errors.push({ recordIndex, field: "timestamp", message: "Data inválida." });
+      return;
+    }
+
+    const dosageRaw = row[dosageIdx] ? unescapeCsvInjectionGuard(row[dosageIdx]).trim() : "";
+    let dosage: string | undefined;
+    if (dosageRaw.length > MAX_MEDICATION_DOSAGE_LENGTH) {
+      errors.push({ recordIndex, field: "dosage", message: `Dosagem excede o limite de ${MAX_MEDICATION_DOSAGE_LENGTH} caracteres.` });
+      return;
+    }
+    if (dosageRaw !== "" && !medicationDosagePattern.test(dosageRaw)) {
+      errors.push({ recordIndex, field: "dosage", message: "Formato de dosagem inválido." });
+      return;
+    }
+    if (dosageRaw !== "") dosage = dosageRaw;
+
+    const unitField = requiredCappedTextField(
+      row[unitIdx] ? unescapeCsvInjectionGuard(row[unitIdx]) : "",
+      MAX_MEDICATION_TEXT_LENGTH,
+      "unit",
+      recordIndex,
+      errors,
+    );
+    if (unitField.invalid) return;
+
+    const frequencyField = requiredCappedTextField(
+      row[frequencyIdx] ? unescapeCsvInjectionGuard(row[frequencyIdx]) : "",
+      MAX_MEDICATION_TEXT_LENGTH,
+      "frequency",
+      recordIndex,
+      errors,
+    );
+    if (frequencyField.invalid) return;
+
+    const routeField = requiredCappedTextField(
+      row[routeIdx] ? unescapeCsvInjectionGuard(row[routeIdx]) : "",
+      MAX_MEDICATION_TEXT_LENGTH,
+      "route",
+      recordIndex,
+      errors,
+    );
+    if (routeField.invalid) return;
+
+    const createdAt = row[createdIdx]?.trim() || timestamp;
+    const updatedAt = row[updatedIdx]?.trim() || createdAt;
+
+    const rawNotes = row[notesIdx] ? unescapeCsvInjectionGuard(row[notesIdx]) : "";
+    const notes = cappedTextField(rawNotes, MAX_NOTE_LENGTH, "notes", recordIndex, errors);
+
+    data.medications.push({
+      name,
+      dosage,
+      unit: unitField.value,
+      frequency: frequencyField.value,
+      route: routeField.value,
+      medicatedAt: timestamp,
+      notes,
+      createdAt: isValidDate(createdAt) ? createdAt : timestamp,
       updatedAt: isValidDate(updatedAt) ? updatedAt : createdAt,
     });
   });

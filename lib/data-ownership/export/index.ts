@@ -7,4 +7,5 @@ export {
   serializeMealsToCsv,
   serializeActivitiesToCsv,
   serializeNotesToCsv,
+  serializeMedicationsToCsv,
 } from "./csv-serializer";

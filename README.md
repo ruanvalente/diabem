@@ -481,6 +481,8 @@ Funcionalidades planejadas ou em desenvolvimento:
 | `docs/design/DESIGN.md`                        | Design system e paleta de cores               |
 | `docs/design/INTERFACE.md`                     | Especificação completa de UI/UX               |
 | `docs/security/`                              | Auditoria, modelo de ameaças, políticas e checklist |
+| `docs/data/`                                  | Proveniência, qualidade e lineage dos dados         |
+| `docs/analytics/`                             | Insights explicáveis e motor de regras              |
 
 ---
 

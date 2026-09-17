@@ -2,6 +2,7 @@ import type {
   ActivityExportRecord,
   GlucoseExportRecord,
   MealExportRecord,
+  MedicationExportRecord,
   NoteExportRecord,
 } from "../types/export.types";
 
@@ -136,6 +137,38 @@ export function serializeNotesToCsv(records: NoteExportRecord[]): string {
   const rows = records.map((r) => [
     escapeCsvValue(r.id),
     escapeCsvValue(r.content),
+    escapeCsvValue(r.createdAt),
+    escapeCsvValue(r.updatedAt),
+  ]);
+
+  return buildCsv(headers, rows);
+}
+
+export function serializeMedicationsToCsv(
+  records: MedicationExportRecord[]
+): string {
+  const headers = [
+    "id",
+    "timestamp",
+    "name",
+    "dosage",
+    "unit",
+    "frequency",
+    "route",
+    "notes",
+    "createdAt",
+    "updatedAt",
+  ];
+
+  const rows = records.map((r) => [
+    escapeCsvValue(r.id),
+    escapeCsvValue(r.medicatedAt),
+    escapeCsvValue(r.name),
+    escapeCsvValue(r.dosage),
+    escapeCsvValue(r.unit),
+    escapeCsvValue(r.frequency),
+    escapeCsvValue(r.route),
+    escapeCsvValue(r.notes),
     escapeCsvValue(r.createdAt),
     escapeCsvValue(r.updatedAt),
   ]);

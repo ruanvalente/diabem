@@ -2,6 +2,7 @@ import { computeIntelligenceAnalytics } from "./analytics/analytics-engine";
 import { compareGlucosePeriods } from "./analytics/period-comparison";
 import { evaluateAllRules } from "./rules/rule-engine";
 import { generateInsights } from "./insights/insight-generator";
+import { buildSnapshot } from "./snapshot";
 import type { IntelligenceResult } from "./types/worker.types";
 import type {
   AnalysisPeriod,
@@ -65,6 +66,7 @@ export function analyzeIntelligence(
       period,
       analytics,
       dataQuality: analytics.dataQuality,
+      records: { glucose, meals, activities },
     });
 
     const insights = generateInsights(patterns);
@@ -76,6 +78,7 @@ export function analyzeIntelligence(
         analytics,
         patterns,
         insights,
+        snapshot: buildSnapshot(glucose, meals, activities, period),
       },
     };
   } catch (error) {

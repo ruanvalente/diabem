@@ -51,6 +51,36 @@ describe("analyzeIntelligence", () => {
     ).toBe(true);
   });
 
+  it("produces a snapshot with record count, source ids and engine version", () => {
+    const glucose = manyGlucose(12, 130);
+    const meals = [meal("m1", { y: 2026, mo: 7, d: 23, h: 12 })];
+    const result = analyzeIntelligence(glucose, meals, [], [], PERIOD);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.data.snapshot.period).toEqual(PERIOD);
+    expect(result.data.snapshot.recordCount).toBe(13);
+    expect(result.data.snapshot.engineVersion).toBeTruthy();
+    expect(result.data.snapshot.sourceIds).toContain("g0");
+    expect(result.data.snapshot.sourceIds).toContain("m1");
+  });
+
+  it("attaches rule metadata and source lineage to insights", () => {
+    const glucose = [glucoseReading("g1", 120, { y: 2026, mo: 7, d: 23, h: 9 })];
+    const result = analyzeIntelligence(glucose, [], [], [], PERIOD);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const insight = result.data.insights.find(
+      (i) => i.type === "insufficient_data"
+    );
+    expect(insight).toBeDefined();
+    expect(insight?.ruleId).toBe("insufficient-data");
+    expect(insight?.ruleVersion).toBe("1.0.0");
+    expect(insight?.explanation).toBeTruthy();
+    expect(insight?.sourceIds).toContain("g1");
+  });
+
   it("works with an empty dataset", () => {
     const result = analyzeIntelligence([], [], [], [], PERIOD);
     expect(result.ok).toBe(true);

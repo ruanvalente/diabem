@@ -2,6 +2,7 @@ import type {
   NormalizedActivity,
   NormalizedGlucose,
   NormalizedMeal,
+  NormalizedMedication,
   NormalizedNote,
 } from "../types/import.types";
 
@@ -119,6 +120,33 @@ export function deduplicateNotes(
   return { unique, duplicateCount };
 }
 
+/**
+ * Deduplicates medications based on timestamp + name + dosage.
+ */
+export function deduplicateMedications(
+  records: NormalizedMedication[],
+  existingRecords: { medicatedAt: string; name: string; dosage?: string }[]
+): DeduplicationResult<NormalizedMedication> {
+  const existingKeys = new Set(
+    existingRecords.map(makeMedicationKey)
+  );
+
+  const unique: NormalizedMedication[] = [];
+  let duplicateCount = 0;
+
+  for (const record of records) {
+    const key = makeMedicationKey(record);
+    if (existingKeys.has(key)) {
+      duplicateCount++;
+      continue;
+    }
+    existingKeys.add(key);
+    unique.push(record);
+  }
+
+  return { unique, duplicateCount };
+}
+
 function makeGlucoseKey(r: { measuredAt: string; value: number; context: string }): string {
   return `${r.measuredAt}|${r.value}|${r.context}`;
 }
@@ -133,4 +161,8 @@ function makeActivityKey(r: { startedAt: string; type: string; durationMinutes: 
 
 function makeNoteKey(r: { createdAt: string; content: string }): string {
   return `${r.createdAt}|${r.content.toLowerCase()}`;
+}
+
+function makeMedicationKey(r: { medicatedAt: string; name: string; dosage?: string }): string {
+  return `${r.medicatedAt}|${r.name.toLowerCase()}|${(r.dosage ?? "").toLowerCase()}`;
 }

@@ -1,11 +1,12 @@
 import { getDatabase } from "../db/database";
 import { clearReminders } from "../browser/reminders/reminder.service";
+import { recordAuditAsync } from "../audit";
 
 /**
- * Deletes all health-data records for a single user across the four data
- * tables, the device registry, sync history and the user's sessions (which
- * logs them out). Everything runs in a single Dexie transaction, so no
- * partial deletion can occur.
+ * Deletes all health-data records for a single user across the five data
+ * tables, the device registry, sync history, audit trail and the user's
+ * sessions (which logs them out). Everything runs in a single Dexie
+ * transaction, so no partial deletion can occur.
  *
  * Reminders kept in localStorage are cleared separately afterwards, since
  * localStorage is not part of IndexedDB and cannot join the transaction.
@@ -23,8 +24,10 @@ export async function deleteUserHealthData(userId: string): Promise<void> {
       db.meals,
       db.activities,
       db.notes,
+      db.medications,
       db.devices,
       db.syncHistory,
+      db.auditTrail,
       db.sessions,
     ],
     async () => {
@@ -33,12 +36,15 @@ export async function deleteUserHealthData(userId: string): Promise<void> {
         db.meals.where("userId").equals(userId).delete(),
         db.activities.where("userId").equals(userId).delete(),
         db.notes.where("userId").equals(userId).delete(),
+        db.medications.where("userId").equals(userId).delete(),
         db.devices.where("userId").equals(userId).delete(),
         db.syncHistory.where("userId").equals(userId).delete(),
+        db.auditTrail.where("userId").equals(userId).delete(),
         db.sessions.where("userId").equals(userId).delete(),
       ]);
     }
   );
 
   clearReminders();
+  recordAuditAsync("user.data.deleted", "user", userId);
 }

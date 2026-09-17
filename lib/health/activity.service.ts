@@ -8,6 +8,7 @@ import type {
   UpdateActivityInput,
 } from "./types";
 import { firstErrorMessage, parseLocalDateTime } from "./validation";
+import { recordAuditAsync } from "../audit";
 
 export async function createActivity(
   userId: string,
@@ -23,13 +24,20 @@ export async function createActivity(
     return { ok: false, error: firstErrorMessage(validation) };
   }
 
+  const now = new Date().toISOString();
   const record = await activityRepository.create({
     userId,
     type: validation.data.type,
     durationMinutes: validation.data.durationMinutes,
     startedAt: validation.data.startedAt,
     notes: validation.data.notes,
+    provenance: {
+      source: input.provenanceSource ?? "manual",
+      recordedAt: now,
+    },
   });
+
+  recordAuditAsync("record.created", "activity", userId, record.id);
 
   return { ok: true, data: record };
 }
@@ -68,6 +76,8 @@ export async function updateActivity(
     return { ok: false, error: "Registro não encontrado" };
   }
 
+  recordAuditAsync("record.updated", "activity", userId, id);
+
   return { ok: true, data: updated };
 }
 
@@ -89,5 +99,6 @@ export async function deleteActivity(
   }
 
   await activityRepository.deleteById(id);
+  recordAuditAsync("record.deleted", "activity", userId, id);
   return { ok: true, data: { id } };
 }

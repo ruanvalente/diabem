@@ -11,5 +11,9 @@ export type Insight = {
   title: string;
   description: string;
   evidence: PatternEvidence[];
+  ruleId: string;
+  ruleVersion: string;
+  explanation: string;
+  sourceIds: string[];
   generatedAt: string;
 };

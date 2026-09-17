@@ -19,24 +19,40 @@ type InsightDetailsProps = {
   insight: Insight;
 };
 
+function formatDate(iso: string): string {
+  const date = new Date(iso);
+  return date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 export function InsightDetails({ insight }: InsightDetailsProps) {
+  const period =
+    insight.evidence[0]?.period ?? insight.evidence[1]?.period;
+
   return (
     <Dialog>
       <DialogTrigger
         render={
           <Button variant="ghost" size="sm" className="hover:bg-transparent">
-            Ver detalhes
+            Por que estou vendo isso?
             <span className="sr-only"> sobre {insight.title}</span>
           </Button>
         }
       />
       <DialogContent showCloseButton className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Padrão observado</DialogTitle>
-          <DialogDescription>{insight.title}</DialogDescription>
+          <DialogTitle>{insight.title}</DialogTitle>
+          <DialogDescription>{insight.description}</DialogDescription>
         </DialogHeader>
 
-        <p className="text-sm text-muted-foreground">{insight.description}</p>
+        {insight.explanation && (
+          <p className="text-sm text-muted-foreground">
+            {insight.explanation}
+          </p>
+        )}
 
         {insight.evidence.length > 0 && (
           <div className="space-y-2">
@@ -63,6 +79,40 @@ export function InsightDetails({ insight }: InsightDetailsProps) {
             </dl>
           </div>
         )}
+
+        <div className="border-t border-border pt-4 space-y-3">
+          <p className="text-xs font-semibold text-foreground">
+            Como este insight foi gerado
+          </p>
+          <dl className="space-y-1.5 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between gap-3">
+              <dt>Regra aplicada</dt>
+              <dd className="font-medium tabular-nums text-foreground">
+                {insight.ruleId} v{insight.ruleVersion}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt>Registros considerados</dt>
+              <dd className="font-medium tabular-nums text-foreground">
+                {insight.sourceIds.length}
+              </dd>
+            </div>
+            {period && (
+              <div className="flex items-center justify-between gap-3">
+                <dt>Período analisado</dt>
+                <dd className="font-medium tabular-nums text-foreground">
+                  {formatDate(period.start)} a {formatDate(period.end)}
+                </dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-3">
+              <dt>Gerado em</dt>
+              <dd className="font-medium tabular-nums text-foreground">
+                {formatDate(insight.generatedAt)}
+              </dd>
+            </div>
+          </dl>
+        </div>
 
         <p className="text-xs text-muted-foreground">
           Este padrão foi identificado a partir dos seus registros e não

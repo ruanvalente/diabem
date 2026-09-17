@@ -235,4 +235,16 @@ describe("DeviceIntegrationService — confirm import", () => {
     await deviceRepository.clearHistory(TEST_USER_ID);
     expect(await service.getSyncHistory(TEST_USER_ID)).toHaveLength(0);
   });
+
+  it("persists provenance from device measurement", async () => {
+    const service = makeService([glucoseMeasurement()]);
+    const preview = await service.syncDevice(TEST_USER_ID, device());
+    await service.confirmImport(TEST_USER_ID, preview);
+
+    const persisted = await glucoseRepository.findByUser(TEST_USER_ID);
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0].provenance).toEqual(
+      expect.objectContaining({ source: "device" })
+    );
+  });
 });

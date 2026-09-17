@@ -178,6 +178,10 @@ describe("insightStrings", () => {
         title: "Título",
         description: "Descrição",
         evidence: [],
+        ruleId: "r1",
+        ruleVersion: "1.0.0",
+        explanation: "Explicação.",
+        sourceIds: [],
         generatedAt: "x",
       },
     ]);

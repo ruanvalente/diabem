@@ -1,5 +1,11 @@
-import type { GlucoseReading, Meal, Activity, Note } from "@/lib/db/types";
-import type { GlucoseContext } from "@/lib/db/types";
+import type {
+  GlucoseReading,
+  Meal,
+  Activity,
+  Note,
+  Medication,
+  GlucoseContext,
+} from "@/lib/db/types";
 import {
   GLUCOSE_CONTEXT_LABELS,
   GLUCOSE_CONTEXT_ORDER,
@@ -125,12 +131,14 @@ function computeTrendLabel(direction: string): string {
   }
 }
 
-function buildGlucoseDistributionByTimeOfDay(
-  readings: GlucoseReading[]
-): DistributionData {
+/**
+ * Groups ISO timestamps into morning / afternoon / evening buckets.
+ * Shared by glucose, meals and medications statistics.
+ */
+function buildDistributionByTimeOfDay(values: string[]): DistributionData {
   const counts = { morning: 0, afternoon: 0, evening: 0 };
-  for (const reading of readings) {
-    const hour = new Date(reading.measuredAt).getHours();
+  for (const value of values) {
+    const hour = new Date(value).getHours();
     if (hour >= 5 && hour < 12) counts.morning += 1;
     else if (hour >= 12 && hour < 18) counts.afternoon += 1;
     else counts.evening += 1;
@@ -142,8 +150,14 @@ function buildGlucoseDistributionByTimeOfDay(
       { period: "afternoon" as const, label: "Tarde", count: counts.afternoon },
       { period: "evening" as const, label: "Noite", count: counts.evening },
     ],
-    total: readings.length,
+    total: values.length,
   };
+}
+
+function buildGlucoseDistributionByTimeOfDay(
+  readings: GlucoseReading[]
+): DistributionData {
+  return buildDistributionByTimeOfDay(readings.map((r) => r.measuredAt));
 }
 
 function buildActivityChartData(
@@ -203,22 +217,7 @@ function buildActivityChartData(
 }
 
 function buildMealDistributionByTimeOfDay(meals: Meal[]): DistributionData {
-  const counts = { morning: 0, afternoon: 0, evening: 0 };
-  for (const meal of meals) {
-    const hour = new Date(meal.consumedAt).getHours();
-    if (hour >= 5 && hour < 12) counts.morning += 1;
-    else if (hour >= 12 && hour < 18) counts.afternoon += 1;
-    else counts.evening += 1;
-  }
-
-  return {
-    items: [
-      { period: "morning" as const, label: "Manhã", count: counts.morning },
-      { period: "afternoon" as const, label: "Tarde", count: counts.afternoon },
-      { period: "evening" as const, label: "Noite", count: counts.evening },
-    ],
-    total: meals.length,
-  };
+  return buildDistributionByTimeOfDay(meals.map((meal) => meal.consumedAt));
 }
 
 export function computeGlucoseStatistics(
@@ -315,5 +314,76 @@ export function computeNoteStatistics(notes: Note[]): NoteStatistics {
   return {
     totalCount: notes.length,
     hasEnoughData: notes.length > 0,
+  };
+}
+
+export type MedicationRouteDistribution = {
+  route: string;
+  label: string;
+  count: number;
+};
+
+export type MedicationNameDistribution = {
+  name: string;
+  count: number;
+};
+
+export type MedicationStatistics = {
+  totalCount: number;
+  distinctCount: number;
+  byRoute: MedicationRouteDistribution[];
+  byName: MedicationNameDistribution[];
+  distributionByTimeOfDay: DistributionData;
+  hasEnoughData: boolean;
+};
+
+function buildMedicationDistributionByTimeOfDay(
+  medications: Medication[]
+): DistributionData {
+  return buildDistributionByTimeOfDay(
+    medications.map((medication) => medication.medicatedAt)
+  );
+}
+
+/**
+ * Computes medication statistics. The route is user-entered free text, so rows
+ * are grouped by the raw value (trimmed); an empty route is labelled as
+ * unspecified. Structural grouping only — never clinical judgment.
+ */
+export function computeMedicationStatistics(
+  medications: Medication[]
+): MedicationStatistics {
+  const routeCounts = new Map<string, number>();
+  const nameCounts = new Map<string, number>();
+
+  for (const medication of medications) {
+    const route = medication.route?.trim() ?? "";
+    routeCounts.set(route, (routeCounts.get(route) ?? 0) + 1);
+    nameCounts.set(medication.name, (nameCounts.get(medication.name) ?? 0) + 1);
+  }
+
+  const byRoute = [...routeCounts.entries()]
+    .map(([route, count]) => ({
+      route,
+      label: route.length > 0 ? route : "Não informada",
+      count,
+    }))
+    .sort(
+      (a, b) => b.count - a.count || a.label.localeCompare(b.label, "pt-BR"),
+    );
+
+  const byName = [...nameCounts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort(
+      (a, b) => b.count - a.count || a.name.localeCompare(b.name, "pt-BR"),
+    );
+
+  return {
+    totalCount: medications.length,
+    distinctCount: nameCounts.size,
+    byRoute,
+    byName,
+    distributionByTimeOfDay: buildMedicationDistributionByTimeOfDay(medications),
+    hasEnoughData: medications.length > 0,
   };
 }

@@ -68,6 +68,10 @@ export function generateInsights(
       title: template.title,
       description: template.description,
       evidence: pattern.evidence,
+      ruleId: pattern.ruleId,
+      ruleVersion: pattern.ruleVersion,
+      explanation: pattern.explanation,
+      sourceIds: pattern.sourceIds,
       generatedAt,
     });
   }

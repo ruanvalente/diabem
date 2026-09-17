@@ -28,6 +28,7 @@ export function measurementToGlucose(
     throw new DeviceError({ code: "invalid-data" });
   }
 
+  const now = new Date().toISOString();
   return {
     value: Math.round(measurement.value * 100) / 100,
     unit: "mg/dL",
@@ -39,6 +40,12 @@ export function measurementToGlucose(
         ? `Origem: ${measurement.source.deviceName}`
         : undefined,
     sourceKey: deviceMeasurementKey(measurement),
+    provenance: {
+      source: "device",
+      sourceId: measurement.source.sourceRecordId ?? measurement.source.deviceId,
+      importedAt: now,
+      recordedAt: measurement.measuredAt,
+    },
     createdAt: measurement.measuredAt,
     updatedAt: measurement.measuredAt,
   };

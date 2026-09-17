@@ -1,7 +1,15 @@
 import type { IntelligenceRule, RuleContext, RuleResult } from "../types/rule.types";
 import { createPattern } from "./pattern-factory";
+import { glucoseInPeriod, recordIds } from "./rule-helpers";
 
 const CONCENTRATION_THRESHOLD = 0.5;
+
+const TIME_SLOT_LABELS: Record<string, string> = {
+  morning: "manhã",
+  afternoon: "tarde",
+  evening: "noite",
+  night: "madrugada",
+};
 
 export const timeConcentrationRule: IntelligenceRule = {
   id: "time-concentration",
@@ -21,6 +29,9 @@ export const timeConcentrationRule: IntelligenceRule = {
     const concentration = maxSlot.count / glucose.stats.count;
     if (concentration < CONCENTRATION_THRESHOLD) return null;
 
+    const records = glucoseInPeriod(context.records.glucose, context.period);
+    const ids = recordIds(records);
+
     return {
       patterns: [
         createPattern(
@@ -32,14 +43,22 @@ export const timeConcentrationRule: IntelligenceRule = {
               metric: `time_slot_${maxSlot.period}_count`,
               value: maxSlot.count,
               period: context.period,
+              sourceIds: ids,
             },
             {
               metric: "total_glucose_records",
               value: glucose.stats.count,
               period: context.period,
+              sourceIds: ids,
             },
           ],
-          concentration
+          concentration,
+          {
+            ruleVersion: "1.0.0",
+            title: "Concentração de registros",
+            explanation: `${maxSlot.count} de ${glucose.stats.count} medições estão concentradas no período da ${TIME_SLOT_LABELS[maxSlot.period] ?? maxSlot.period}.`,
+            sourceIds: ids,
+          }
         ),
       ],
     };

@@ -22,6 +22,15 @@ export const MAX_DESCRIPTION_LENGTH = 500;
 /** Maximum length for standalone notes (persisted observations). */
 export const MAX_CONTENT_LENGTH = 2_000;
 
+/** Maximum length for medication name. */
+export const MAX_MEDICATION_NAME_LENGTH = 100;
+
+/** Maximum length for the free-text dosage value (e.g. "500" or "1,5"). */
+export const MAX_MEDICATION_DOSAGE_LENGTH = 30;
+
+/** Maximum length for medication unit / frequency / route fields. */
+export const MAX_MEDICATION_TEXT_LENGTH = 100;
+
 /**
  * Coerces a primitive scalar (string/number/boolean) to a trimmed string.
  * Returns `undefined` for anything else (objects, arrays, null), so callers

@@ -6,6 +6,7 @@ import { useGlucose } from "@/lib/health/hooks/use-glucose";
 import { useMeals } from "@/lib/health/hooks/use-meals";
 import { useActivities } from "@/lib/health/hooks/use-activities";
 import { useNotes } from "@/lib/health/hooks/use-notes";
+import { useMedications } from "@/lib/health/hooks/use-medications";
 import { useIntelligence } from "@/lib/intelligence/use-intelligence";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
@@ -31,6 +32,7 @@ import { DashboardChartsSection } from "../ui/dashboard-charts-section.ui";
 import { RecentRecords } from "../ui/recent-records.ui";
 import { InsightsSection } from "../ui/insights-section.ui";
 import { InsightDetails } from "../ui/insight-details.ui";
+import { QualityIndicator } from "../ui/quality-indicator.ui";
 
 function getSubtitle(selection: PeriodSelection): string {
   if (selection.period === "custom" && selection.custom) {
@@ -70,11 +72,13 @@ export function DashboardWidget() {
   const meals = useMeals(userId, range);
   const activities = useActivities(userId, range);
   const notes = useNotes(userId, range);
+  const medications = useMedications(userId, range);
 
   const glucoseFilters = glucose.applyFilters;
   const mealsFilters = meals.applyFilters;
   const activitiesFilters = activities.applyFilters;
   const notesFilters = notes.applyFilters;
+  const medicationsFilters = medications.applyFilters;
 
   useEffect(() => {
     if (!userId) return;
@@ -82,6 +86,7 @@ export function DashboardWidget() {
     void mealsFilters(range);
     void activitiesFilters(range);
     void notesFilters(range);
+    void medicationsFilters(range);
   }, [
     userId,
     range,
@@ -89,21 +94,28 @@ export function DashboardWidget() {
     mealsFilters,
     activitiesFilters,
     notesFilters,
+    medicationsFilters,
   ]);
 
   const isLoading =
     glucose.isLoading ||
     meals.isLoading ||
     activities.isLoading ||
-    notes.isLoading;
+    notes.isLoading ||
+    medications.isLoading;
   const error =
-    glucose.error ?? meals.error ?? activities.error ?? notes.error;
+    glucose.error ??
+    meals.error ??
+    activities.error ??
+    notes.error ??
+    medications.error;
 
   const data = {
     glucose: glucose.records,
     meals: meals.records,
     activities: activities.records,
     notes: notes.records,
+    medications: medications.records,
   };
 
   const analysisPeriod = useMemo(() => {
@@ -147,6 +159,7 @@ export function DashboardWidget() {
             void meals.reload();
             void activities.reload();
             void notes.reload();
+            void medications.reload();
           }}
         />
       ) : (
@@ -159,6 +172,9 @@ export function DashboardWidget() {
           />
           <QuickActions actions={QUICK_ACTIONS} />
           <DaySummaryList cards={summaryCards} title="Resumo do período" />
+          {!isLoading && intelligence.result?.analytics.dataQuality && (
+            <QualityIndicator quality={intelligence.result.analytics.dataQuality} />
+          )}
           {!isLoading && intelligence.insights.length > 0 && (
             <InsightsSection
               insights={intelligence.insights}

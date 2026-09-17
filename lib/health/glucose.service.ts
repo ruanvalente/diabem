@@ -8,6 +8,7 @@ import type {
   UpdateGlucoseInput,
 } from "./types";
 import { firstErrorMessage, parseLocalDateTime } from "./validation";
+import { recordAuditAsync } from "../audit";
 
 export async function createGlucoseReading(
   userId: string,
@@ -26,6 +27,7 @@ export async function createGlucoseReading(
     return { ok: false, error: firstErrorMessage(validation) };
   }
 
+  const now = new Date().toISOString();
   const record = await glucoseRepository.create({
     userId,
     value: validation.data.value,
@@ -33,7 +35,13 @@ export async function createGlucoseReading(
     context: validation.data.context,
     measuredAt: validation.data.measuredAt,
     notes: validation.data.notes,
+    provenance: {
+      source: input.provenanceSource ?? "manual",
+      recordedAt: now,
+    },
   });
+
+  recordAuditAsync("record.created", "glucose", userId, record.id);
 
   return { ok: true, data: record };
 }
@@ -70,6 +78,8 @@ export async function updateGlucoseReading(
     return { ok: false, error: "Registro não encontrado" };
   }
 
+  recordAuditAsync("record.updated", "glucose", userId, id);
+
   return { ok: true, data: updated };
 }
 
@@ -91,5 +101,6 @@ export async function deleteGlucoseReading(
   }
 
   await glucoseRepository.deleteById(id);
+  recordAuditAsync("record.deleted", "glucose", userId, id);
   return { ok: true, data: { id } };
 }
