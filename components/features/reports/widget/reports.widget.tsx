@@ -2,15 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
-import { PeriodRangeFilter } from "@/components/shared/period-range-filter";
 import {
   PERIOD_LABELS,
   formatPeriodRangeLabel,
-  resolvePeriodSelectionRange,
   type PeriodSelection,
 } from "@/lib/date";
 import { useAuth } from "@/lib/auth/use-auth";
@@ -19,7 +16,12 @@ import { useMeals } from "@/lib/health/hooks/use-meals";
 import { useActivities } from "@/lib/health/hooks/use-activities";
 import { useNotes } from "@/lib/health/hooks/use-notes";
 import { useIntelligence } from "@/lib/intelligence/use-intelligence";
-import { downloadFile, shareFile } from "@/lib/data-ownership/share";
+import {
+  canShare,
+  downloadFile,
+  shareFile,
+  type ShareableFile,
+} from "@/lib/data-ownership/share";
 import {
   buildReportData,
   buildCsvRows,
@@ -28,21 +30,23 @@ import {
   type ReportCategory,
   type ReportData,
   type ReportFormat,
+  type ReportSourceRecords,
 } from "@/lib/reports";
+import { usePeriodRange } from "../hooks/use-period-range";
+import { PeriodCard } from "../ui/period-card.ui";
+import { CategoryCard } from "../ui/category-card.ui";
 import { ReportPreview } from "../ui/report-preview.ui";
-import { FileText, Loader2, Check, Calendar } from "lucide-react";
+import { FileText, Loader2, Check } from "lucide-react";
 
 type ReportState =
   | { status: "idle" }
   | { status: "generating" }
-  | { status: "generated"; data: ReportData; csvRows: string };
-
-const ALL_CATEGORIES: { value: ReportCategory; label: string }[] = [
-  { value: "glucose", label: "Glicemia" },
-  { value: "meals", label: "Refeições" },
-  { value: "activity", label: "Atividade física" },
-  { value: "notes", label: "Observações" },
-];
+  | {
+      status: "generated";
+      data: ReportData;
+      csvRows: string;
+      shareFile: ShareableFile | null;
+    };
 
 export function ReportsWidget() {
   const { user } = useAuth();
@@ -57,23 +61,9 @@ export function ReportsWidget() {
   );
   const [report, setReport] = useState<ReportState>({ status: "idle" });
 
-  const [range, setRange] = useState(() =>
-    resolvePeriodSelectionRange(period),
-  );
+  const canShareFile = useMemo(() => canShare(), []);
 
-  useEffect(() => {
-    const refresh = () => setRange(resolvePeriodSelectionRange(period));
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") refresh();
-    };
-    refresh();
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [period]);
+  const range = usePeriodRange(period);
 
   const glucose = useGlucose(userId, range);
   const meals = useMeals(userId, range);
@@ -141,36 +131,28 @@ export function ReportsWidget() {
 
     try {
       const insights = insightStrings(intelligence.insights);
+      const sourceRecords: ReportSourceRecords = {
+        glucose: glucose.records,
+        meals: meals.records,
+        activities: activities.records,
+        notes: notes.records,
+      };
       const data = buildReportData({
-        records: {
-          glucose: glucose.records,
-          meals: meals.records,
-          activities: activities.records,
-          notes: notes.records,
-        },
+        records: sourceRecords,
         period: analysisPeriod,
         categories: selectedCategories,
         insights,
       });
-      const csvRows = buildCsvRows(
-        {
-          glucose: glucose.records,
-          meals: meals.records,
-          activities: activities.records,
-          notes: notes.records,
-        },
-        selectedCategories,
-      );
-      setReport({ status: "generated", data, csvRows });
-      toast.add({
-        title: "Relatório gerado com sucesso.",
-        type: "success",
-      });
+      const csvRows = buildCsvRows(sourceRecords, selectedCategories);
+      let reportFile: ShareableFile | null = null;
+      try {
+        reportFile = await buildReportFile("pdf", data, csvRows);
+      } catch {
+        reportFile = null;
+      }
+
+      setReport({ status: "generated", data, csvRows, shareFile: reportFile });
     } catch {
-      toast.add({
-        title: "Não foi possível gerar o relatório.",
-        type: "error",
-      });
       setReport({ status: "idle" });
     }
   }, [
@@ -187,7 +169,10 @@ export function ReportsWidget() {
     async (format: ReportFormat) => {
       if (report.status !== "generated") return;
       try {
-        const file = await buildReportFile(format, report.data, report.csvRows);
+        const file =
+          format === "pdf" && report.shareFile
+            ? report.shareFile
+            : await buildReportFile(format, report.data, report.csvRows);
         downloadFile(file);
         toast.add({ title: `Relatório ${format.toUpperCase()} baixado.`, type: "success" });
       } catch {
@@ -199,8 +184,17 @@ export function ReportsWidget() {
 
   const handleShare = useCallback(async () => {
     if (report.status !== "generated") return;
+
+    const file = report.shareFile;
+    if (!file) {
+      toast.add({
+        title: "Não foi possível compartilhar o relatório.",
+        type: "error",
+      });
+      return;
+    }
+
     try {
-      const file = await buildReportFile("pdf", report.data, report.csvRows);
       const result = await shareFile(file);
       if (result.ok) {
         toast.add({
@@ -214,6 +208,13 @@ export function ReportsWidget() {
       toast.add({ title: "Não foi possível compartilhar o relatório.", type: "error" });
     }
   }, [report]);
+
+  const handleRetry = () => {
+    void glucose.reload();
+    void meals.reload();
+    void activities.reload();
+    void notes.reload();
+  };
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8">
@@ -229,59 +230,16 @@ export function ReportsWidget() {
       {isLoading ? (
         <ListSkeleton rows={3} />
       ) : error ? (
-        <ErrorState
-          message={error}
-          onRetry={() => {
-            void glucose.reload();
-            void meals.reload();
-            void activities.reload();
-            void notes.reload();
-          }}
-        />
+        <ErrorState message={error} onRetry={handleRetry} />
       ) : (
         <div className="space-y-4">
-          {/* Period Selection */}
-          <Card className="border-border shadow-[var(--shadow-card)]">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Calendar className="size-4 text-primary" />
-                Período
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <PeriodRangeFilter value={period} onChange={setPeriod} />
-            </CardContent>
-          </Card>
+          <PeriodCard value={period} onChange={setPeriod} />
 
-          {/* Categories */}
-          <Card className="border-border shadow-[var(--shadow-card)]">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <FileText className="size-4 text-primary" />
-                Categorias
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="space-y-2">
-                {ALL_CATEGORIES.map((cat) => (
-                  <label
-                    key={cat.value}
-                    className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedCategories.includes(cat.value)}
-                      onChange={() => toggleCategory(cat.value)}
-                      className="size-4 rounded border-border"
-                    />
-                    <span className="text-sm text-foreground">{cat.label}</span>
-                  </label>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <CategoryCard
+            selected={selectedCategories}
+            onToggle={toggleCategory}
+          />
 
-          {/* Generate */}
           <Button
             onClick={() => { void handleGenerate(); }}
             disabled={report.status === "generating" || selectedCategories.length === 0}
@@ -302,11 +260,11 @@ export function ReportsWidget() {
             )}
           </Button>
 
-          {/* Report Preview */}
           {report.status === "generated" && (
             <ReportPreview
               data={report.data}
               periodLabel={periodLabel}
+              canShareFile={canShareFile}
               onExportPdf={() => { void handleExport("pdf"); }}
               onExportCsv={() => { void handleExport("csv"); }}
               onExportJson={() => { void handleExport("json"); }}
