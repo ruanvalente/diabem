@@ -21,6 +21,7 @@ const DATA_TYPES: { key: keyof ExportScope; label: string }[] = [
   { key: "meals", label: "Alimentação" },
   { key: "activities", label: "Atividade" },
   { key: "notes", label: "Observações" },
+  { key: "medications", label: "Medicamentos" },
 ];
 
 type ShareDataDialogProps = {
@@ -42,7 +43,8 @@ export function ShareDataDialog({
   const [isPending, setIsPending] = useState(false);
 
   const anySelected =
-    scope.glucose || scope.meals || scope.activities || scope.notes;
+    scope.glucose || scope.meals || scope.activities || scope.notes ||
+    scope.medications;
 
   function toggleScope(key: keyof ExportScope) {
     setScope((prev) => ({ ...prev, [key]: !prev[key] }));

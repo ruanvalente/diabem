@@ -1,9 +1,11 @@
-import type { GlucoseReading, Meal, Activity, Note } from "@/lib/db/types";
+import type { GlucoseReading, Meal, Activity, Note, Medication } from "@/lib/db/types";
 import { getGlucoseRangeInfo } from "@/lib/health/glucose-range";
+import { formatMedicationDetails } from "@/lib/health/medication-display";
 import {
   ACTIVITY_TYPE_LABELS,
   GLUCOSE_CONTEXT_LABELS,
   MEAL_TYPE_LABELS,
+  TIMELINE_EVENT_LABELS,
 } from "@/lib/health/constants";
 import {
   getActivityChartData,
@@ -24,6 +26,7 @@ import {
   Apple,
   Droplets,
   NotebookPen,
+  Pill,
 } from "lucide-react";
 import type { QuickAction, RecentRecord, SummaryCard } from "../types";
 
@@ -47,6 +50,12 @@ export const QUICK_ACTIONS: QuickAction[] = [
     href: "/notes",
     color: "bg-destructive",
   },
+  {
+    icon: Pill,
+    label: "Medicamento",
+    href: "/medications",
+    color: "bg-secondary",
+  },
 ];
 
 type DashboardData = {
@@ -54,6 +63,7 @@ type DashboardData = {
   meals: Meal[];
   activities: Activity[];
   notes: Note[];
+  medications: Medication[];
 };
 
 /** Builds the "Resumo do período" cards from period-scoped records. */
@@ -61,12 +71,13 @@ export function buildSummaryCards(
   data: DashboardData,
   adverbial: string,
 ): SummaryCard[] {
-  const { glucose, meals, activities, notes } = data;
+  const { glucose, meals, activities, notes, medications } = data;
 
   const lastGlucose = glucose[0];
   const lastMeal = meals[0];
   const lastActivity = activities[0];
   const lastNote = notes[0];
+  const lastMedication = medications[0];
 
   return [
     {
@@ -110,6 +121,17 @@ export function buildSummaryCards(
       last: lastNote?.content ?? `Nenhuma observação ${adverbial}`,
       color: "text-destructive",
       bg: "bg-destructive/10",
+    },
+    {
+      href: "/medications",
+      icon: Pill,
+      title: "Medicamentos",
+      count: medications.length,
+      last: lastMedication
+        ? `${lastMedication.name} às ${formatTime(lastMedication.medicatedAt)}`
+        : `Nenhum medicamento ${adverbial}`,
+      color: "text-secondary",
+      bg: "bg-secondary/10",
     },
   ];
 }
@@ -160,6 +182,7 @@ export function buildDashboardCharts(
     ...data.meals.map((record) => record.consumedAt),
     ...data.activities.map((record) => record.startedAt),
     ...data.notes.map((record) => record.createdAt),
+    ...data.medications.map((record) => record.medicatedAt),
   ]);
 
   const glucoseSummary =
@@ -263,6 +286,17 @@ export function buildRecentRecords(data: DashboardData): RecentRecord[] {
       detail: record.content,
       at: record.createdAt,
       time: formatTime(record.createdAt),
+    })),
+    ...recent.medications.map<RecentRecord>((record) => ({
+      id: record.id,
+      type: "medication",
+      href: "/medications",
+      icon: Pill,
+      title: record.name,
+      detail:
+        formatMedicationDetails(record) || TIMELINE_EVENT_LABELS.medication,
+      at: record.medicatedAt,
+      time: formatTime(record.medicatedAt),
     })),
   ];
 

@@ -3,6 +3,7 @@ import type {
   NormalizedGlucose,
   NormalizedImportData,
   NormalizedMeal,
+  NormalizedMedication,
   NormalizedNote,
 } from "../types/import.types";
 import type { DataProvenance } from "../../db/types";
@@ -27,6 +28,7 @@ export function normalizeImportData(
     meals: data.meals.map((r) => normalizeMeal(r, provenance)),
     activities: data.activities.map((r) => normalizeActivity(r, provenance)),
     notes: data.notes.map((r) => normalizeNote(r, provenance)),
+    medications: data.medications.map((r) => normalizeMedication(r, provenance)),
   };
 }
 
@@ -83,6 +85,24 @@ function normalizeNote(
 ): NormalizedNote {
   return {
     content: record.content.trim(),
+    provenance: provenance ?? record.provenance,
+    createdAt: record.createdAt.trim(),
+    updatedAt: record.updatedAt.trim(),
+  };
+}
+
+function normalizeMedication(
+  record: NormalizedMedication,
+  provenance?: DataProvenance
+): NormalizedMedication {
+  return {
+    name: record.name.trim(),
+    dosage: record.dosage?.trim() || undefined,
+    unit: record.unit?.trim() || undefined,
+    frequency: record.frequency?.trim() || undefined,
+    route: record.route?.trim() || undefined,
+    medicatedAt: record.medicatedAt.trim(),
+    notes: record.notes?.trim() || undefined,
     provenance: provenance ?? record.provenance,
     createdAt: record.createdAt.trim(),
     updatedAt: record.updatedAt.trim(),

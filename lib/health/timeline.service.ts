@@ -1,11 +1,13 @@
 import { activityRepository } from "../db/repositories/activity.repository";
 import { glucoseRepository } from "../db/repositories/glucose.repository";
 import { mealRepository } from "../db/repositories/meal.repository";
+import { medicationRepository } from "../db/repositories/medication.repository";
 import { noteRepository } from "../db/repositories/note.repository";
 import type {
   Activity,
   GlucoseReading,
   Meal,
+  Medication,
   Note,
 } from "../db/types";
 import type {
@@ -16,8 +18,9 @@ import type {
 } from "./types";
 
 /**
- * Consolidates glucose, meal, activity and note records into a single chrono
- * stream (newest first), honoring optional period and type filters.
+ * Consolidates glucose, meal, activity, note and medication records into a
+ * single chrono stream (newest first), honoring optional period and type
+ * filters.
  */
 export async function listTimeline(
   userId: string,
@@ -26,11 +29,12 @@ export async function listTimeline(
   const range = { from: filter.from, to: filter.to };
   const selectedTypes = collectSelectedTypes(filter);
 
-  const [glucose, meals, activities, notes] = await Promise.all([
+  const [glucose, meals, activities, notes, medications] = await Promise.all([
     fetchRecordType("glucose", userId, selectedTypes, range),
     fetchRecordType("meal", userId, selectedTypes, range),
     fetchRecordType("activity", userId, selectedTypes, range),
     fetchRecordType("note", userId, selectedTypes, range),
+    fetchRecordType("medication", userId, selectedTypes, range),
   ]);
 
   const events: TimelineEvent[] = [];
@@ -42,6 +46,8 @@ export async function listTimeline(
     events.push({ type: "activity", id: record.id, at: record.startedAt, data: record });
   for (const record of notes)
     events.push({ type: "note", id: record.id, at: record.createdAt, data: record });
+  for (const record of medications)
+    events.push({ type: "medication", id: record.id, at: record.medicatedAt, data: record });
 
   events.sort((a, b) => b.at.localeCompare(a.at));
   return { ok: true, data: events };
@@ -77,11 +83,17 @@ async function fetchRecordType(
   range: { from?: string; to?: string }
 ): Promise<Note[]>;
 async function fetchRecordType(
+  type: "medication",
+  userId: string,
+  selectedTypes: Set<TimelineEventType>,
+  range: { from?: string; to?: string }
+): Promise<Medication[]>;
+async function fetchRecordType(
   type: TimelineEventType,
   userId: string,
   selectedTypes: Set<TimelineEventType>,
   range: { from?: string; to?: string }
-): Promise<GlucoseReading[] | Meal[] | Activity[] | Note[]> {
+): Promise<GlucoseReading[] | Meal[] | Activity[] | Note[] | Medication[]> {
   if (selectedTypes.size > 0 && !selectedTypes.has(type)) return [];
 
   switch (type) {
@@ -93,5 +105,7 @@ async function fetchRecordType(
       return activityRepository.findByUser(userId, range);
     case "note":
       return noteRepository.findByUser(userId, range);
+    case "medication":
+      return medicationRepository.findByUser(userId, range);
   }
 }

@@ -14,6 +14,9 @@ import {
   MAX_NOTE_LENGTH,
   MAX_DESCRIPTION_LENGTH,
   MAX_CONTENT_LENGTH,
+  MAX_MEDICATION_NAME_LENGTH,
+  MAX_MEDICATION_DOSAGE_LENGTH,
+  MAX_MEDICATION_TEXT_LENGTH,
 } from "../../security/sanitization/text";
 import {
   GLUCOSE_CONTEXT_VALUES,
@@ -98,6 +101,59 @@ export const noteRecordSchema = z
       .string()
       .min(1, "Conteúdo vazio")
       .max(MAX_CONTENT_LENGTH, `Conteúdo excede ${MAX_CONTENT_LENGTH} caracteres`),
+    provenance: provenanceSchema.optional(),
+    createdAt: isoDateTime,
+    updatedAt: isoDateTime,
+  })
+  .strict();
+
+/** Decimal dosage format (e.g. "500", "10", "1,5"). Mirrors `medicationSchema`. */
+const medicationDosagePattern = /^\d+(?:[.,]\d+)?$/;
+
+export const medicationRecordSchema = z
+  .object({
+    id: z.string().optional(),
+    name: z
+      .string()
+      .min(1, "Nome inválido")
+      .max(
+        MAX_MEDICATION_NAME_LENGTH,
+        `Nome excede ${MAX_MEDICATION_NAME_LENGTH} caracteres`,
+      ),
+    dosage: z
+      .string()
+      .max(
+        MAX_MEDICATION_DOSAGE_LENGTH,
+        `Dosagem excede ${MAX_MEDICATION_DOSAGE_LENGTH} caracteres`,
+      )
+      .refine(
+        (value) => value.trim() === "" || medicationDosagePattern.test(value.trim()),
+        "Formato de dosagem inválido",
+      )
+      .optional(),
+    unit: z
+      .string()
+      .max(
+        MAX_MEDICATION_TEXT_LENGTH,
+        `Unidade excede ${MAX_MEDICATION_TEXT_LENGTH} caracteres`,
+      )
+      .optional(),
+    frequency: z
+      .string()
+      .max(
+        MAX_MEDICATION_TEXT_LENGTH,
+        `Frequência excede ${MAX_MEDICATION_TEXT_LENGTH} caracteres`,
+      )
+      .optional(),
+    route: z
+      .string()
+      .max(
+        MAX_MEDICATION_TEXT_LENGTH,
+        `Via excede ${MAX_MEDICATION_TEXT_LENGTH} caracteres`,
+      )
+      .optional(),
+    medicatedAt: isoDateTime,
+    notes: z.string().max(MAX_NOTE_LENGTH, `Nota excede ${MAX_NOTE_LENGTH} caracteres`).optional(),
     provenance: provenanceSchema.optional(),
     createdAt: isoDateTime,
     updatedAt: isoDateTime,

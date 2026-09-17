@@ -21,6 +21,7 @@ const DATA_TYPES: { key: keyof ExportScope; label: string }[] = [
   { key: "meals", label: "Alimentação" },
   { key: "activities", label: "Atividade" },
   { key: "notes", label: "Observações" },
+  { key: "medications", label: "Medicamentos" },
 ];
 
 const FORMATS: { value: ExportFormat; label: string; description: string }[] = [
@@ -45,7 +46,11 @@ export function ExportDataDialog({
   const [isExporting, setIsExporting] = useState(false);
 
   const anySelected =
-    scope.glucose || scope.meals || scope.activities || scope.notes;
+    scope.glucose ||
+    scope.meals ||
+    scope.activities ||
+    scope.notes ||
+    scope.medications;
 
   const handleExport = async () => {
     if (!anySelected) {

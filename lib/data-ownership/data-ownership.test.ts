@@ -4,6 +4,7 @@ import { glucoseRepository } from "../db/repositories/glucose.repository";
 import { mealRepository } from "../db/repositories/meal.repository";
 import { activityRepository } from "../db/repositories/activity.repository";
 import { noteRepository } from "../db/repositories/note.repository";
+import { medicationRepository } from "../db/repositories/medication.repository";
 import { exportAsJson, exportAsCsv } from "./export/exporter";
 import { parseFileContent } from "./import/importer";
 import { detectFileKind, validateFile } from "./import/validator";
@@ -15,6 +16,7 @@ import {
   deduplicateMeals,
   deduplicateActivities,
   deduplicateNotes,
+  deduplicateMedications,
 } from "./import/deduplicator";
 import { dataOwnershipService } from "./data-ownership.service";
 import { deleteUserHealthData } from "./delete-service";
@@ -34,13 +36,22 @@ beforeEach(async () => {
   const db = getDatabase();
   await db.transaction(
     "rw",
-    [db.glucoseReadings, db.meals, db.activities, db.notes, db.users, db.sessions],
+    [
+      db.glucoseReadings,
+      db.meals,
+      db.activities,
+      db.notes,
+      db.medications,
+      db.users,
+      db.sessions,
+    ],
     async () => {
       await Promise.all([
         db.glucoseReadings.where("userId").equals(TEST_USER_ID).delete(),
         db.meals.where("userId").equals(TEST_USER_ID).delete(),
         db.activities.where("userId").equals(TEST_USER_ID).delete(),
         db.notes.where("userId").equals(TEST_USER_ID).delete(),
+        db.medications.where("userId").equals(TEST_USER_ID).delete(),
       ]);
     }
   );
@@ -109,11 +120,37 @@ async function seedNotes() {
   }
 }
 
+async function seedMedications() {
+  const items = [
+    {
+      name: "Metformina",
+      dosage: "500",
+      unit: "mg",
+      frequency: "2x ao dia",
+      route: "oral",
+      medicatedAt: "2026-09-01T08:00:00Z",
+      notes: "Tomar com café",
+    },
+    {
+      name: "Ibuprofeno",
+      dosage: "200",
+      medicatedAt: "2026-09-01T15:00:00Z",
+    },
+  ];
+  for (const item of items) {
+    await medicationRepository.create({
+      userId: TEST_USER_ID,
+      ...item,
+    });
+  }
+}
+
 async function seedAllData() {
   await seedGlucose();
   await seedMeals();
   await seedActivities();
   await seedNotes();
+  await seedMedications();
 }
 
 describe("Data Ownership — Export", () => {
@@ -121,7 +158,7 @@ describe("Data Ownership — Export", () => {
     it("exports JSON with empty arrays when no data exists", async () => {
       const options: ExportOptions = {
         format: "json",
-        scope: { glucose: true, meals: true, activities: true, notes: true },
+        scope: { medications: false, glucose: true, meals: true, activities: true, notes: true },
       };
       const file = await exportAsJson(TEST_USER_ID, options);
       const parsed = JSON.parse(file.content) as DiaBemExport;
@@ -137,7 +174,7 @@ describe("Data Ownership — Export", () => {
     it("exports CSV with headers only when no data exists", async () => {
       const options: ExportOptions = {
         format: "csv",
-        scope: { glucose: true, meals: true, activities: true, notes: true },
+        scope: { medications: false, glucose: true, meals: true, activities: true, notes: true },
       };
       const files = await exportAsCsv(TEST_USER_ID, options);
       expect(files.length).toBe(1);
@@ -153,7 +190,7 @@ describe("Data Ownership — Export", () => {
     it("exports all data as JSON with correct envelope", async () => {
       const options: ExportOptions = {
         format: "json",
-        scope: { glucose: true, meals: true, activities: true, notes: true },
+        scope: { medications: true, glucose: true, meals: true, activities: true, notes: true },
       };
       const file = await exportAsJson(TEST_USER_ID, options);
       const parsed = JSON.parse(file.content) as DiaBemExport;
@@ -165,12 +202,13 @@ describe("Data Ownership — Export", () => {
       expect(parsed.data.meals.length).toBe(2);
       expect(parsed.data.activities.length).toBe(2);
       expect(parsed.data.notes.length).toBe(2);
+      expect(parsed.data.medications.length).toBe(2);
     });
 
     it("does not include userId in exported records", async () => {
       const options: ExportOptions = {
         format: "json",
-        scope: { glucose: true, meals: true, activities: true, notes: true },
+        scope: { medications: true, glucose: true, meals: true, activities: true, notes: true },
       };
       const file = await exportAsJson(TEST_USER_ID, options);
       const parsed = JSON.parse(file.content) as DiaBemExport;
@@ -181,12 +219,15 @@ describe("Data Ownership — Export", () => {
       for (const record of parsed.data.meals) {
         expect(record).not.toHaveProperty("userId");
       }
+      for (const record of parsed.data.medications) {
+        expect(record).not.toHaveProperty("userId");
+      }
     });
 
     it("exports partial scope correctly", async () => {
       const options: ExportOptions = {
         format: "json",
-        scope: { glucose: true, meals: false, activities: false, notes: false },
+        scope: { medications: false, glucose: true, meals: false, activities: false, notes: false },
       };
       const file = await exportAsJson(TEST_USER_ID, options);
       const parsed = JSON.parse(file.content) as DiaBemExport;
@@ -200,14 +241,15 @@ describe("Data Ownership — Export", () => {
     it("exports separate CSV files per entity", async () => {
       const options: ExportOptions = {
         format: "csv",
-        scope: { glucose: true, meals: true, activities: true, notes: true },
+        scope: { medications: true, glucose: true, meals: true, activities: true, notes: true },
       };
       const files = await exportAsCsv(TEST_USER_ID, options);
-      expect(files.length).toBe(4);
+      expect(files.length).toBe(5);
       expect(files[0].fileName).toContain("glucose");
       expect(files[1].fileName).toContain("meals");
       expect(files[2].fileName).toContain("activities");
       expect(files[3].fileName).toContain("notes");
+      expect(files[4].fileName).toContain("medications");
     });
   });
 
@@ -224,7 +266,7 @@ describe("Data Ownership — Export", () => {
 
       const options: ExportOptions = {
         format: "json",
-        scope: { glucose: true, meals: false, activities: false, notes: false },
+        scope: { medications: false, glucose: true, meals: false, activities: false, notes: false },
       };
       const file = await exportAsJson(TEST_USER_ID, options);
       const parsed = JSON.parse(file.content) as DiaBemExport;
@@ -245,7 +287,7 @@ describe("Data Ownership — Export", () => {
 
       const options: ExportOptions = {
         format: "csv",
-        scope: { glucose: false, meals: false, activities: false, notes: true },
+        scope: { medications: false, glucose: false, meals: false, activities: false, notes: true },
       };
       const files = await exportAsCsv(TEST_USER_ID, options);
       expect(files.length).toBe(1);
@@ -266,7 +308,7 @@ describe("Data Ownership — Export", () => {
 
       const options: ExportOptions = {
         format: "csv",
-        scope: { glucose: false, meals: false, activities: false, notes: true },
+        scope: { medications: false, glucose: false, meals: false, activities: false, notes: true },
       };
       const files = await exportAsCsv(TEST_USER_ID, options);
       const content = files[0].content;
@@ -285,7 +327,7 @@ describe("Data Ownership — Export", () => {
 
       const options: ExportOptions = {
         format: "csv",
-        scope: { glucose: false, meals: false, activities: false, notes: true },
+        scope: { medications: false, glucose: false, meals: false, activities: false, notes: true },
       };
       const files = await exportAsCsv(TEST_USER_ID, options);
       const content = files[0].content;
@@ -305,7 +347,7 @@ describe("Data Ownership — Export", () => {
 
       const options: ExportOptions = {
         format: "csv",
-        scope: { glucose: false, meals: false, activities: false, notes: true },
+        scope: { medications: false, glucose: false, meals: false, activities: false, notes: true },
       };
       const files = await exportAsCsv(TEST_USER_ID, options);
       const content = files[0].content;
@@ -324,7 +366,7 @@ describe("Data Ownership — Export", () => {
 
       const options: ExportOptions = {
         format: "json",
-        scope: { glucose: true, meals: false, activities: false, notes: false },
+        scope: { medications: false, glucose: true, meals: false, activities: false, notes: false },
         period: { from: "2026-09-01", to: "2026-09-10" },
       };
       const file = await exportAsJson(TEST_USER_ID, options);
@@ -358,6 +400,7 @@ describe("Data Ownership — Import", () => {
           meals: [],
           activities: [],
           notes: [],
+          medications: [],
         },
       };
       const content = JSON.stringify(envelope);
@@ -367,6 +410,64 @@ describe("Data Ownership — Import", () => {
       if (result.ok) {
         expect(result.data.data.glucose.length).toBe(1);
         expect(result.data.data.glucose[0].value).toBe(120);
+      }
+    });
+
+    it("parses medications from a JSON export", () => {
+      const envelope: DiaBemExport = {
+        version: 1,
+        application: "DiaBem",
+        exportedAt: "2026-09-02T12:00:00Z",
+        data: {
+          glucose: [],
+          meals: [],
+          activities: [],
+          notes: [],
+          medications: [
+            {
+              id: "med1",
+              name: "Metformina",
+              dosage: "500",
+              unit: "mg",
+              frequency: "2x ao dia",
+              route: "oral",
+              medicatedAt: "2026-09-01T08:00:00Z",
+              notes: "Tomar com café",
+              createdAt: "2026-09-01T08:00:00Z",
+              updatedAt: "2026-09-01T08:00:00Z",
+            },
+          ],
+        },
+      };
+      const content = JSON.stringify(envelope);
+      const result = parseJsonImport(content);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.data.medications.length).toBe(1);
+        const med = result.data.data.medications[0];
+        expect(med.name).toBe("Metformina");
+        expect(med.dosage).toBe("500");
+        expect(med.route).toBe("oral");
+      }
+    });
+
+    it("treats a missing medications key as an empty list for older exports", () => {
+      const envelope = {
+        version: 1,
+        application: "DiaBem",
+        exportedAt: "2026-09-02T12:00:00Z",
+        data: {
+          glucose: [],
+          meals: [],
+          activities: [],
+          notes: [],
+        },
+      };
+      const result = parseJsonImport(JSON.stringify(envelope));
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.data.medications).toEqual([]);
       }
     });
 
@@ -492,6 +593,71 @@ describe("Data Ownership — Import", () => {
       if (result.ok) {
         expect(result.data.notes.length).toBe(1);
         expect(result.data.notes[0].content).toBe("Me sentindo bem");
+      }
+    });
+
+    it("parses a valid medications CSV", () => {
+      const csv = [
+        "id,timestamp,name,dosage,unit,frequency,route,notes,createdAt,updatedAt",
+        "med1,2026-09-01T08:00:00Z,Metformina,500,mg,2x ao dia,oral,Tomar com café,,",
+      ].join("\n");
+      const result = parseCsvImport(csv);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.medications.length).toBe(1);
+        expect(result.data.medications[0].name).toBe("Metformina");
+        expect(result.data.medications[0].dosage).toBe("500");
+        expect(result.data.medications[0].unit).toBe("mg");
+        expect(result.data.medications[0].frequency).toBe("2x ao dia");
+        expect(result.data.medications[0].route).toBe("oral");
+        expect(result.data.medications[0].notes).toBe("Tomar com café");
+      }
+    });
+
+    it("rejects a medications CSV with empty name and invalid dosage", () => {
+      const csv = [
+        "id,timestamp,name,dosage,unit,frequency,route,notes,createdAt,updatedAt",
+        "med1,2026-09-01T08:00:00Z,Metformina,abc,,oral,,,,",
+        "med2,2026-09-01T09:00:00Z,,500,,,,,,",
+      ].join("\n");
+      const result = parseCsvImport(csv);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        const fields = result.errors.map((e) => `${e.field}:${e.recordIndex}`);
+        expect(fields).toContain("dosage:2");
+        expect(fields).toContain("name:3");
+      }
+    });
+
+    it("drops a medication row when unit exceeds the length cap", () => {
+      const csv = [
+        "id,timestamp,name,dosage,unit,frequency,route,notes,createdAt,updatedAt",
+        `med1,2026-09-01T08:00:00Z,Metformina,500,${"x".repeat(101)},2x ao dia,oral,Tomar com café,,`,
+      ].join("\n");
+      const result = parseCsvImport(csv);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors.some((e) => e.field === "unit")).toBe(true);
+        // The whole row is dropped, not partially imported without the unit.
+        const data = result as typeof result & { data: NormalizedImportData };
+        expect(data.data.medications.length).toBe(0);
+      }
+    });
+
+    it("keeps a medication row when notes exceed the length cap (field dropped only)", () => {
+      const csv = [
+        "id,timestamp,name,dosage,unit,frequency,route,notes,createdAt,updatedAt",
+        `med1,2026-09-01T08:00:00Z,Metformina,500,mg,2x ao dia,oral,"${"x".repeat(501)}",,`,
+      ].join("\n");
+      const result = parseCsvImport(csv);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.medications.length).toBe(1);
+        expect(result.data.medications[0].notes).toBeUndefined();
+        expect(result.errors.some((e) => e.field === "notes")).toBe(true);
       }
     });
 
@@ -658,6 +824,7 @@ describe("Data Ownership — Import", () => {
         ],
         activities: [],
         notes: [],
+        medications: [],
       };
 
       const normalized = normalizeImportData(data);
@@ -681,10 +848,70 @@ describe("Data Ownership — Import", () => {
         meals: [],
         activities: [],
         notes: [],
+        medications: [],
       };
 
       const normalized = normalizeImportData(data);
       expect(normalized.glucose[0].value).toBe(120.46);
+    });
+
+    it("normalizes medication fields", () => {
+      const data: NormalizedImportData = {
+        glucose: [],
+        meals: [],
+        activities: [],
+        notes: [],
+        medications: [
+          {
+            name: "  Metformina  ",
+            dosage: " 500 ",
+            unit: "  mg  ",
+            frequency: "  2x ao dia  ",
+            route: " oral ",
+            medicatedAt: "  2026-09-01T08:00:00Z  ",
+            notes: "  Tomar com café  ",
+            createdAt: "2026-09-01T08:00:00Z",
+            updatedAt: "2026-09-01T08:00:00Z",
+          },
+        ],
+      };
+
+      const normalized = normalizeImportData(data);
+      expect(normalized.medications[0].name).toBe("Metformina");
+      expect(normalized.medications[0].dosage).toBe("500");
+      expect(normalized.medications[0].unit).toBe("mg");
+      expect(normalized.medications[0].frequency).toBe("2x ao dia");
+      expect(normalized.medications[0].route).toBe("oral");
+      expect(normalized.medications[0].notes).toBe("Tomar com café");
+    });
+
+    it("normalizes medication with empty optionals to undefined", () => {
+      const data: NormalizedImportData = {
+        glucose: [],
+        meals: [],
+        activities: [],
+        notes: [],
+        medications: [
+          {
+            name: "Ibuprofeno",
+            dosage: "",
+            unit: "  ",
+            frequency: "",
+            route: "",
+            medicatedAt: "2026-09-01T15:00:00Z",
+            notes: "",
+            createdAt: "2026-09-01T15:00:00Z",
+            updatedAt: "2026-09-01T15:00:00Z",
+          },
+        ],
+      };
+
+      const normalized = normalizeImportData(data);
+      expect(normalized.medications[0].dosage).toBeUndefined();
+      expect(normalized.medications[0].unit).toBeUndefined();
+      expect(normalized.medications[0].frequency).toBeUndefined();
+      expect(normalized.medications[0].route).toBeUndefined();
+      expect(normalized.medications[0].notes).toBeUndefined();
     });
   });
 
@@ -742,6 +969,56 @@ describe("Data Ownership — Import", () => {
       expect(result.unique.length).toBe(0);
       expect(result.duplicateCount).toBe(1);
     });
+
+    it("deduplicates medications by timestamp + name + dosage", () => {
+      const incoming = [
+        {
+          name: "Metformina",
+          dosage: "500",
+          medicatedAt: "2026-09-01T08:00:00Z",
+          createdAt: "2026-09-01T08:00:00Z",
+          updatedAt: "2026-09-01T08:00:00Z",
+        },
+        {
+          name: "Metformina",
+          dosage: "1000",
+          medicatedAt: "2026-09-01T08:00:00Z",
+          createdAt: "2026-09-01T08:00:00Z",
+          updatedAt: "2026-09-01T08:00:00Z",
+        },
+      ];
+      const existing = [
+        {
+          medicatedAt: "2026-09-01T08:00:00Z",
+          name: "Metformina",
+          dosage: "500",
+        },
+      ];
+
+      const result = deduplicateMedications(incoming, existing);
+      expect(result.unique.length).toBe(1);
+      expect(result.duplicateCount).toBe(1);
+      expect(result.unique[0].dosage).toBe("1000");
+    });
+
+    it("deduplicates medications case-insensitively on name", () => {
+      const incoming = [
+        {
+          name: "Glifage",
+          dosage: "850",
+          medicatedAt: "2026-09-01T08:00:00Z",
+          createdAt: "2026-09-01T08:00:00Z",
+          updatedAt: "2026-09-01T08:00:00Z",
+        },
+      ];
+      const existing = [
+        { medicatedAt: "2026-09-01T08:00:00Z", name: "glifage", dosage: "850" },
+      ];
+
+      const result = deduplicateMedications(incoming, existing);
+      expect(result.duplicateCount).toBe(1);
+      expect(result.unique.length).toBe(0);
+    });
   });
 });
 
@@ -752,7 +1029,7 @@ describe("Data Ownership — Round-trip", () => {
 
       const options: ExportOptions = {
         format: "json",
-        scope: { glucose: true, meals: true, activities: true, notes: true },
+        scope: { medications: true, glucose: true, meals: true, activities: true, notes: true },
       };
       const file = await exportAsJson(TEST_USER_ID, options);
 
@@ -770,17 +1047,19 @@ describe("Data Ownership — Round-trip", () => {
         TEST_USER_ID,
         prepared.normalizedData
       );
-      expect(result.totalImported).toBe(9);
+      expect(result.totalImported).toBe(11);
 
       const restoredGlucose = await glucoseRepository.findByUser(TEST_USER_ID);
       const restoredMeals = await mealRepository.findByUser(TEST_USER_ID);
       const restoredActivities = await activityRepository.findByUser(TEST_USER_ID);
       const restoredNotes = await noteRepository.findByUser(TEST_USER_ID);
+      const restoredMedications = await medicationRepository.findByUser(TEST_USER_ID);
 
       expect(restoredGlucose.length).toBe(3);
       expect(restoredMeals.length).toBe(2);
       expect(restoredActivities.length).toBe(2);
       expect(restoredNotes.length).toBe(2);
+      expect(restoredMedications.length).toBe(2);
 
       // Order may differ after re-import.
       const glucoseValues = restoredGlucose.map((g) => g.value);
@@ -791,6 +1070,9 @@ describe("Data Ownership — Round-trip", () => {
       expect(mealDescriptions).toContain("Pão com ovo");
       expect(restoredActivities.length).toBe(2);
       expect(restoredNotes.length).toBe(2);
+      const medicationNames = restoredMedications.map((m) => m.name);
+      expect(medicationNames).toContain("Metformina");
+      expect(medicationNames).toContain("Ibuprofeno");
     });
 
     it("export → import preserves the original provenance source on re-import", async () => {
@@ -809,7 +1091,7 @@ describe("Data Ownership — Round-trip", () => {
 
       const file = await exportAsJson(TEST_USER_ID, {
         format: "json",
-        scope: { glucose: true, meals: false, activities: false, notes: false },
+        scope: { medications: false, glucose: true, meals: false, activities: false, notes: false },
       });
 
       await deleteUserHealthData(TEST_USER_ID);
@@ -836,7 +1118,7 @@ describe("Data Ownership — Round-trip", () => {
 
       const options: ExportOptions = {
         format: "csv",
-        scope: { glucose: true, meals: false, activities: false, notes: false },
+        scope: { medications: false, glucose: true, meals: false, activities: false, notes: false },
       };
       const files = await exportAsCsv(TEST_USER_ID, options);
       expect(files.length).toBe(1);
@@ -863,7 +1145,7 @@ describe("Data Ownership — Round-trip", () => {
 
       const options: ExportOptions = {
         format: "csv",
-        scope: { glucose: false, meals: true, activities: false, notes: false },
+        scope: { medications: false, glucose: false, meals: true, activities: false, notes: false },
       };
       const files = await exportAsCsv(TEST_USER_ID, options);
       expect(files.length).toBe(1);
@@ -893,7 +1175,7 @@ describe("Data Ownership — Round-trip", () => {
 
       const options: ExportOptions = {
         format: "csv",
-        scope: { glucose: false, meals: false, activities: true, notes: false },
+        scope: { medications: false, glucose: false, meals: false, activities: true, notes: false },
       };
       const files = await exportAsCsv(TEST_USER_ID, options);
       expect(files.length).toBe(1);
@@ -923,7 +1205,7 @@ describe("Data Ownership — Round-trip", () => {
 
       const options: ExportOptions = {
         format: "csv",
-        scope: { glucose: false, meals: false, activities: false, notes: true },
+        scope: { medications: false, glucose: false, meals: false, activities: false, notes: true },
       };
       const files = await exportAsCsv(TEST_USER_ID, options);
       expect(files.length).toBe(1);
@@ -953,10 +1235,10 @@ describe("Data Ownership — Round-trip", () => {
 
       const options: ExportOptions = {
         format: "csv",
-        scope: { glucose: true, meals: true, activities: true, notes: true },
+        scope: { medications: true, glucose: true, meals: true, activities: true, notes: true },
       };
       const files = await exportAsCsv(TEST_USER_ID, options);
-      expect(files.length).toBe(4);
+      expect(files.length).toBe(5);
 
       await deleteUserHealthData(TEST_USER_ID);
 
@@ -972,17 +1254,19 @@ describe("Data Ownership — Round-trip", () => {
         totalImported += result.totalImported;
       }
 
-      expect(totalImported).toBe(9);
+      expect(totalImported).toBe(11);
 
       const glucose = await glucoseRepository.findByUser(TEST_USER_ID);
       const meals = await mealRepository.findByUser(TEST_USER_ID);
       const activities = await activityRepository.findByUser(TEST_USER_ID);
       const notes = await noteRepository.findByUser(TEST_USER_ID);
+      const medications = await medicationRepository.findByUser(TEST_USER_ID);
 
       expect(glucose.length).toBe(3);
       expect(meals.length).toBe(2);
       expect(activities.length).toBe(2);
       expect(notes.length).toBe(2);
+      expect(medications.length).toBe(2);
     });
   });
 
@@ -992,7 +1276,7 @@ describe("Data Ownership — Round-trip", () => {
 
       const options: ExportOptions = {
         format: "json",
-        scope: { glucose: true, meals: true, activities: true, notes: true },
+        scope: { medications: true, glucose: true, meals: true, activities: true, notes: true },
       };
       const file = await exportAsJson(TEST_USER_ID, options);
 
@@ -1005,7 +1289,7 @@ describe("Data Ownership — Round-trip", () => {
         TEST_USER_ID,
         prepared.normalizedData
       );
-      expect(result.duplicatesSkipped).toBe(9);
+      expect(result.duplicatesSkipped).toBe(11);
       expect(result.totalImported).toBe(0);
     });
   });
@@ -1021,11 +1305,13 @@ describe("Data Ownership — Delete", () => {
     const meals = await mealRepository.findByUser(TEST_USER_ID);
     const activities = await activityRepository.findByUser(TEST_USER_ID);
     const notes = await noteRepository.findByUser(TEST_USER_ID);
+    const medications = await medicationRepository.findByUser(TEST_USER_ID);
 
     expect(glucose.length).toBe(0);
     expect(meals.length).toBe(0);
     expect(activities.length).toBe(0);
     expect(notes.length).toBe(0);
+    expect(medications.length).toBe(0);
   });
 
   it("purges the user's sessions on deletion (logs out)", async () => {
@@ -1073,6 +1359,7 @@ describe("Data Ownership — Service", () => {
     expect(scope.meals).toBe(true);
     expect(scope.activities).toBe(true);
     expect(scope.notes).toBe(true);
+    expect(scope.medications).toBe(true);
   });
 
   it("prepareImport validates file size", async () => {
@@ -1097,6 +1384,7 @@ describe("Data Ownership — Service", () => {
         meals: [],
         activities: [],
         notes: [],
+        medications: [],
       },
     };
 
@@ -1140,5 +1428,51 @@ describe("Data Ownership — Encryption Integration", () => {
     const records = await glucoseRepository.findByUser(TEST_USER_ID);
     // Without key, encrypted fields should be undefined
     expect(records[0].notes).toBeUndefined();
+  });
+
+  it("imported medications are encrypted in IndexedDB", async () => {
+    const envelope: DiaBemExport = {
+      version: 1,
+      application: "DiaBem",
+      exportedAt: "2026-09-02T12:00:00Z",
+      data: {
+        glucose: [],
+        meals: [],
+        activities: [],
+        notes: [],
+        medications: [
+          {
+            id: "med1",
+            name: "Metformina",
+            dosage: "500",
+            medicatedAt: "2026-09-01T08:00:00Z",
+            notes: "Nota sensível do medicamento",
+            createdAt: "2026-09-01T08:00:00Z",
+            updatedAt: "2026-09-01T08:00:00Z",
+          },
+        ],
+      },
+    };
+
+    const { data } = parseFileContent(JSON.stringify(envelope), "json");
+    const result = await dataOwnershipService.importUserData(
+      TEST_USER_ID,
+      data
+    );
+    expect(result.totalImported).toBe(1);
+
+    // Decrypted read through the repository.
+    const records = await medicationRepository.findByUser(TEST_USER_ID);
+    expect(records).toHaveLength(1);
+    expect(records[0].notes).toBe("Nota sensível do medicamento");
+
+    // Raw persisted notes must be an encrypted payload.
+    const db = getDatabase();
+    const raw = await db.medications.toArray();
+    const target = raw.find((r) => r.userId === TEST_USER_ID);
+    expect(target).toBeTruthy();
+    expect(target!.notes).toHaveProperty("algorithm", "AES-GCM");
+    expect(target!.notes).toHaveProperty("iv");
+    expect(target!.notes).toHaveProperty("data");
   });
 });

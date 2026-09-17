@@ -7,6 +7,7 @@ import { ErrorState } from "@/components/shared/error-state";
 import { GlucoseTab } from "../ui/glucose-tab.ui";
 import { ActivityTab } from "../ui/activity-tab.ui";
 import { MealsTab } from "../ui/meals-tab.ui";
+import { MedicationsTab } from "../ui/medications-tab.ui";
 import { useStatistics } from "../hooks/use-statistics";
 
 export function StatisticsWidget() {
@@ -16,6 +17,9 @@ export function StatisticsWidget() {
     error,
     selection,
     setSelection,
+    medicationFilter,
+    setMedicationFilter,
+    medicationNames,
     reload,
   } = useStatistics();
 
@@ -44,11 +48,14 @@ export function StatisticsWidget() {
         />
       ) : (
         <Tabs defaultValue="glucose" className="mb-6">
-          <TabsList className="w-full justify-start">
-            <TabsTrigger value="glucose">Glicemia</TabsTrigger>
-            <TabsTrigger value="activity">Atividade</TabsTrigger>
-            <TabsTrigger value="meals">Alimentação</TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto">
+            <TabsList className="w-full justify-start">
+              <TabsTrigger value="glucose">Glicemia</TabsTrigger>
+              <TabsTrigger value="activity">Atividade</TabsTrigger>
+              <TabsTrigger value="meals">Alimentação</TabsTrigger>
+              <TabsTrigger value="medications">Medicamentos</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="glucose" className="mt-4">
             <GlucoseTab stats={data.glucose} />
@@ -60,6 +67,15 @@ export function StatisticsWidget() {
 
           <TabsContent value="meals" className="mt-4">
             <MealsTab stats={data.meals} />
+          </TabsContent>
+
+          <TabsContent value="medications" className="mt-4">
+            <MedicationsTab
+              stats={data.medications}
+              names={medicationNames}
+              filter={medicationFilter}
+              onFilterChange={setMedicationFilter}
+            />
           </TabsContent>
         </Tabs>
       )}

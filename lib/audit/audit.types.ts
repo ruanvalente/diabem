@@ -20,6 +20,7 @@ export type AuditEntity =
   | "meal"
   | "activity"
   | "note"
+  | "medication"
   | "analytics"
   | "insight"
   | "user"

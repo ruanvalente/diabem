@@ -6,6 +6,7 @@ import { useGlucose } from "@/lib/health/hooks/use-glucose";
 import { useMeals } from "@/lib/health/hooks/use-meals";
 import { useActivities } from "@/lib/health/hooks/use-activities";
 import { useNotes } from "@/lib/health/hooks/use-notes";
+import { useMedications } from "@/lib/health/hooks/use-medications";
 import {
   resolvePeriodSelectionRange,
   type PeriodSelection,
@@ -15,10 +16,12 @@ import {
   computeActivityStatistics,
   computeMealStatistics,
   computeNoteStatistics,
+  computeMedicationStatistics,
   type GlucoseStatistics,
   type ActivityStatistics,
   type MealStatistics,
   type NoteStatistics,
+  type MedicationStatistics,
 } from "@/lib/analytics/statistics";
 
 export type StatisticsData = {
@@ -26,6 +29,7 @@ export type StatisticsData = {
   activity: ActivityStatistics;
   meals: MealStatistics;
   notes: NoteStatistics;
+  medications: MedicationStatistics;
 };
 
 export type UseStatisticsResult = {
@@ -34,6 +38,9 @@ export type UseStatisticsResult = {
   error: string | null;
   selection: PeriodSelection;
   setSelection: (selection: PeriodSelection) => void;
+  medicationFilter: string;
+  setMedicationFilter: (value: string) => void;
+  medicationNames: string[];
   reload: () => void;
 };
 
@@ -45,6 +52,8 @@ export function useStatistics(): UseStatisticsResult {
     period: "month",
     custom: null,
   });
+
+  const [medicationFilter, setMedicationFilter] = useState<string>("all");
 
   const [range, setRange] = useState(() =>
     resolvePeriodSelectionRange(selection)
@@ -68,6 +77,7 @@ export function useStatistics(): UseStatisticsResult {
   const meals = useMeals(userId, range);
   const activities = useActivities(userId, range);
   const notes = useNotes(userId, range);
+  const medications = useMedications(userId, range);
 
   useEffect(() => {
     if (!userId) return;
@@ -75,13 +85,49 @@ export function useStatistics(): UseStatisticsResult {
     void meals.applyFilters(range);
     void activities.applyFilters(range);
     void notes.applyFilters(range);
+    void medications.applyFilters(range);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initial filter sync
   }, [userId, range]);
 
   const isLoading =
-    glucose.isLoading || meals.isLoading || activities.isLoading || notes.isLoading;
+    glucose.isLoading ||
+    meals.isLoading ||
+    activities.isLoading ||
+    notes.isLoading ||
+    medications.isLoading;
   const error =
-    glucose.error ?? meals.error ?? activities.error ?? notes.error;
+    glucose.error ??
+    meals.error ??
+    activities.error ??
+    notes.error ??
+    medications.error;
+
+  const medicationNames = useMemo(
+    () =>
+      [...new Set(medications.records.map((record) => record.name))].sort(
+        (a, b) => a.localeCompare(b, "pt-BR")
+      ),
+    [medications.records]
+  );
+
+  // If the current filter no longer exists in the period, silently treat it as
+  // "all" without resetting the state (avoiding lint-prohibited setState inside
+  // an effect).
+  const effectiveFilter =
+    medicationFilter === "all" ||
+    medicationNames.includes(medicationFilter)
+      ? medicationFilter
+      : "all";
+
+  const medicationRecords = useMemo(
+    () =>
+      effectiveFilter === "all"
+        ? medications.records
+        : medications.records.filter(
+            (record) => record.name === effectiveFilter
+          ),
+    [medications.records, effectiveFilter]
+  );
 
   const data = useMemo<StatisticsData>(
     () => ({
@@ -89,8 +135,16 @@ export function useStatistics(): UseStatisticsResult {
       activity: computeActivityStatistics(activities.records, range),
       meals: computeMealStatistics(meals.records),
       notes: computeNoteStatistics(notes.records),
+      medications: computeMedicationStatistics(medicationRecords),
     }),
-    [glucose.records, activities.records, range, meals.records, notes.records]
+    [
+      glucose.records,
+      activities.records,
+      range,
+      meals.records,
+      notes.records,
+      medicationRecords,
+    ]
   );
 
   const reload = () => {
@@ -98,6 +152,7 @@ export function useStatistics(): UseStatisticsResult {
     void meals.reload();
     void activities.reload();
     void notes.reload();
+    void medications.reload();
   };
 
   return {
@@ -106,6 +161,9 @@ export function useStatistics(): UseStatisticsResult {
     error,
     selection,
     setSelection,
+    medicationFilter: effectiveFilter,
+    setMedicationFilter,
+    medicationNames,
     reload,
   };
 }

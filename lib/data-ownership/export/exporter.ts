@@ -2,6 +2,7 @@ import { glucoseRepository } from "../../db/repositories/glucose.repository";
 import { mealRepository } from "../../db/repositories/meal.repository";
 import { activityRepository } from "../../db/repositories/activity.repository";
 import { noteRepository } from "../../db/repositories/note.repository";
+import { medicationRepository } from "../../db/repositories/medication.repository";
 import type {
   DiaBemExport,
   ExportOptions,
@@ -14,6 +15,7 @@ import {
   serializeMealsToCsv,
   serializeActivitiesToCsv,
   serializeNotesToCsv,
+  serializeMedicationsToCsv,
 } from "./csv-serializer";
 
 type ExportFile = {
@@ -33,11 +35,12 @@ async function collectData(
 ) {
   const filter = { from: period?.from, to: period?.to };
 
-  const [glucose, meals, activities, notes] = await Promise.all([
+  const [glucose, meals, activities, notes, medications] = await Promise.all([
     scope.glucose ? glucoseRepository.findByUser(userId, filter) : [],
     scope.meals ? mealRepository.findByUser(userId, filter) : [],
     scope.activities ? activityRepository.findByUser(userId, filter) : [],
     scope.notes ? noteRepository.findByUser(userId, filter) : [],
+    scope.medications ? medicationRepository.findByUser(userId, filter) : [],
   ]);
 
   const stripUser = <T extends { userId: string }>(records: T[]) =>
@@ -49,6 +52,7 @@ async function collectData(
     meals: stripUser(meals),
     activities: stripUser(activities),
     notes: stripUser(notes),
+    medications: stripUser(medications),
   };
 }
 
@@ -128,6 +132,14 @@ export async function exportAsCsv(
     files.push({
       fileName: `diabem-notes-${timestamp}.csv`,
       content: serializeNotesToCsv(data.notes),
+      mimeType: "text/csv",
+    });
+  }
+
+  if (data.medications.length > 0) {
+    files.push({
+      fileName: `diabem-medications-${timestamp}.csv`,
+      content: serializeMedicationsToCsv(data.medications),
       mimeType: "text/csv",
     });
   }

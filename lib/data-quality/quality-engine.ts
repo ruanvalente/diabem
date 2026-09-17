@@ -1,4 +1,10 @@
-import type { GlucoseReading, Meal, Activity, Note } from "@/lib/db/types";
+import type {
+  Activity,
+  GlucoseReading,
+  Meal,
+  Medication,
+  Note,
+} from "@/lib/db/types";
 import type {
   DataQualityIssue,
   DataQualityLevel,
@@ -7,6 +13,7 @@ import type {
 import { checkGlucoseQuality } from "./rules/glucose-quality.rule";
 import { checkMealQuality } from "./rules/meal-quality.rule";
 import { checkActivityQuality } from "./rules/activity-quality.rule";
+import { checkMedicationQuality } from "./rules/medication-quality.rule";
 
 const WARNING_PENALTY = 0.25;
 const INFO_PENALTY = 0.05;
@@ -38,8 +45,8 @@ function computeResult(issues: DataQualityIssue[]): DataQualityResult {
 }
 
 export function assessRecord(record: {
-  kind: "glucose" | "meal" | "activity" | "note";
-  data: GlucoseReading | Meal | Activity | Note;
+  kind: "glucose" | "meal" | "activity" | "note" | "medication";
+  data: GlucoseReading | Meal | Activity | Note | Medication;
 }): DataQualityResult {
   const issues: DataQualityIssue[] =
     record.kind === "glucose"
@@ -48,7 +55,9 @@ export function assessRecord(record: {
         ? checkMealQuality(record.data as Meal)
         : record.kind === "activity"
           ? checkActivityQuality(record.data as Activity)
-          : [];
+          : record.kind === "medication"
+            ? checkMedicationQuality(record.data as Medication)
+            : [];
 
   return computeResult(issues);
 }
@@ -57,10 +66,14 @@ export function assessDataset(records: {
   glucose: GlucoseReading[];
   meals: Meal[];
   activities: Activity[];
+  medications?: Medication[];
 }): DataQualityResult[] {
   return [
     ...records.glucose.map((data) => assessRecord({ kind: "glucose", data })),
     ...records.meals.map((data) => assessRecord({ kind: "meal", data })),
     ...records.activities.map((data) => assessRecord({ kind: "activity", data })),
+    ...(records.medications ?? []).map((data) =>
+      assessRecord({ kind: "medication", data }),
+    ),
   ];
 }

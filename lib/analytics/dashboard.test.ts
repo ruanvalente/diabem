@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Activity, GlucoseReading, Meal, Note } from "@/lib/db/types";
+import type { Activity, GlucoseReading, Meal, Medication, Note } from "@/lib/db/types";
 import { buildDashboardSummary, getRecentRecords } from "./dashboard";
 
 function glucose(
@@ -64,6 +64,19 @@ function note(createdAt: string, id = "n-1"): Note {
   };
 }
 
+function medication(medicatedAt: string, id = "med-1"): Medication {
+  return {
+    id,
+    userId: "user-a",
+    name: "Metformina",
+    dosage: "500",
+    unit: "mg",
+    medicatedAt,
+    createdAt: medicatedAt,
+    updatedAt: medicatedAt,
+  };
+}
+
 describe("buildDashboardSummary", () => {
   it("counts records and computes activity minutes", () => {
     const at = (h: number) => new Date(2026, 7, 28, h).toISOString();
@@ -77,6 +90,7 @@ describe("buildDashboardSummary", () => {
         meals: [meal(at(12))],
         activities: [activity(at(7), 30), activity(at(18), 15)],
         notes: [note(at(21))],
+        medications: [medication(at(9)), medication(at(19))],
       },
       { from: at(0), to: at(0) },
     );
@@ -87,7 +101,8 @@ describe("buildDashboardSummary", () => {
     expect(summary.activities.count).toBe(2);
     expect(summary.activities.totalMinutes).toBe(45);
     expect(summary.notes.count).toBe(1);
-    expect(summary.totalRecords).toBe(6);
+    expect(summary.medications.count).toBe(2);
+    expect(summary.totalRecords).toBe(8);
     expect(summary.period.start).toBe(at(0));
   });
 
@@ -97,6 +112,7 @@ describe("buildDashboardSummary", () => {
       meals: [],
       activities: [],
       notes: [],
+      medications: [],
     });
 
     expect(summary.totalRecords).toBe(0);
@@ -113,10 +129,27 @@ describe("buildDashboardSummary", () => {
       meals: [],
       activities: [],
       notes: [],
+      medications: [],
     });
 
     expect(summary.glucose.latest).toBeDefined();
     expect(summary.glucose.latest!.value).toBe(140);
+  });
+
+  it("counts medications and includes them in totalRecords", () => {
+    const at = (h: number) => new Date(2026, 7, 28, h).toISOString();
+
+    const summary = buildDashboardSummary({
+      glucose: [],
+      meals: [],
+      activities: [],
+      notes: [],
+      medications: [medication(at(8)), medication(at(12), "med-2"), medication(at(18), "med-3")],
+    });
+
+    expect(summary.medications.count).toBe(3);
+    expect(summary.notes.count).toBe(0);
+    expect(summary.totalRecords).toBe(3);
   });
 });
 
@@ -130,6 +163,10 @@ describe("getRecentRecords", () => {
       meals: [meal("2026-08-28T00:00:00.000Z")],
       activities: [activity("2026-08-28T00:00:00.000Z", 10)],
       notes: [note("2026-08-28T00:00:00.000Z")],
+      medications: [
+        medication("2026-08-28T00:00:00.000Z"),
+        medication("2026-08-28T01:00:00.000Z", "med-2"),
+      ],
     };
 
     const recent = getRecentRecords(records, 1);
@@ -137,6 +174,7 @@ describe("getRecentRecords", () => {
     expect(recent.meals).toHaveLength(1);
     expect(recent.activities).toHaveLength(1);
     expect(recent.notes).toHaveLength(1);
+    expect(recent.medications).toHaveLength(1);
     expect(recent.glucose[0].value).toBe(1);
   });
 });

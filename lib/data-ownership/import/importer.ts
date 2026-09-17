@@ -4,7 +4,11 @@ import { glucoseRepository } from "../../db/repositories/glucose.repository";
 import { mealRepository } from "../../db/repositories/meal.repository";
 import { activityRepository } from "../../db/repositories/activity.repository";
 import { noteRepository } from "../../db/repositories/note.repository";
-import { encryptSensitiveFields } from "../../db/crypto-field";
+import { medicationRepository } from "../../db/repositories/medication.repository";
+import {
+  encryptSensitiveFields,
+  type SensitiveFields,
+} from "../../db/crypto-field";
 import type {
   ActivityType,
   DataProvenance,
@@ -28,8 +32,81 @@ import {
   deduplicateMeals,
   deduplicateActivities,
   deduplicateNotes,
+  deduplicateMedications,
 } from "./deduplicator";
 import { recordAuditAsync } from "../../audit";
+
+/** Shared context for every record built during an import. */
+type ImportMeta = {
+  userId: string;
+  importedAt: string;
+  sourceId?: string;
+};
+
+// Persisted shapes used by the import pipeline. Sensitive fields may be
+// written back as ciphertext, hence the `string | EncryptedPayload` unions
+// that differ from the plain domain types (which is why the table casts
+// below are needed).
+type ImportGlucoseRecord = {
+  id: string;
+  userId: string;
+  value: number;
+  unit: "mg/dL";
+  context: GlucoseContext;
+  measuredAt: string;
+  createdAt: string;
+  updatedAt: string;
+  provenance?: DataProvenance;
+  notes?: string | EncryptedPayload;
+};
+
+type ImportMealRecord = {
+  id: string;
+  userId: string;
+  type: MealType;
+  description: string | EncryptedPayload;
+  consumedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  provenance?: DataProvenance;
+  notes?: string | EncryptedPayload;
+};
+
+type ImportActivityRecord = {
+  id: string;
+  userId: string;
+  type: ActivityType;
+  durationMinutes: number;
+  startedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  provenance?: DataProvenance;
+  notes?: string | EncryptedPayload;
+};
+
+type ImportNoteRecord = {
+  id: string;
+  userId: string;
+  content: string | EncryptedPayload;
+  createdAt: string;
+  updatedAt: string;
+  provenance?: DataProvenance;
+};
+
+type ImportMedicationRecord = {
+  id: string;
+  userId: string;
+  name: string;
+  dosage?: string;
+  unit?: string;
+  frequency?: string;
+  route?: string;
+  medicatedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  provenance?: DataProvenance;
+  notes?: string | EncryptedPayload;
+};
 
 /**
  * Reads a File object and returns its text content.
@@ -46,10 +123,18 @@ export function parseFileContent(
   content: string,
   fileKind: ImportFileKind
 ): { data: NormalizedImportData; errors: ImportValidationError[] } {
+  const emptyData: NormalizedImportData = {
+    glucose: [],
+    meals: [],
+    activities: [],
+    notes: [],
+    medications: [],
+  };
+
   if (fileKind === "json") {
     const result = parseJsonImport(content);
     if (!result.ok) {
-      return { data: { glucose: [], meals: [], activities: [], notes: [] }, errors: result.errors };
+      return { data: emptyData, errors: result.errors };
     }
     return normalizeFromExport(result.data);
   }
@@ -57,13 +142,13 @@ export function parseFileContent(
   if (fileKind === "csv") {
     const result = parseCsvImport(content);
     if (!result.ok) {
-      return { data: { glucose: [], meals: [], activities: [], notes: [] }, errors: result.errors };
+      return { data: emptyData, errors: result.errors };
     }
     return { data: normalizeImportData(result.data), errors: result.errors };
   }
 
   return {
-    data: { glucose: [], meals: [], activities: [], notes: [] },
+    data: emptyData,
     errors: [{ recordIndex: -1, field: "file", message: "Formato de arquivo não reconhecido." }],
   };
 }
@@ -115,6 +200,18 @@ function normalizeFromExport(
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
       })),
+      medications: (data.medications ?? []).map((r) => ({
+        name: r.name,
+        dosage: r.dosage,
+        unit: r.unit,
+        frequency: r.frequency,
+        route: r.route,
+        medicatedAt: r.medicatedAt,
+        notes: r.notes,
+        provenance: r.provenance,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      })),
     },
     errors: [],
   };
@@ -129,29 +226,34 @@ export async function buildImportPreview(
   fileKind: ImportFileKind,
   normalizedData: NormalizedImportData
 ): Promise<ImportPreview> {
-  const [existingGlucose, existingMeals, existingActivities, existingNotes] =
+  const [existingGlucose, existingMeals, existingActivities, existingNotes, existingMedications] =
     await Promise.all([
       glucoseRepository.findByUser(userId),
       mealRepository.findByUser(userId),
       activityRepository.findByUser(userId),
       noteRepository.findByUser(userId),
+      medicationRepository.findByUser(userId),
     ]);
 
   const glucoseDedup = deduplicateGlucose(normalizedData.glucose, existingGlucose);
   const mealsDedup = deduplicateMeals(normalizedData.meals, existingMeals);
   const activitiesDedup = deduplicateActivities(normalizedData.activities, existingActivities);
   const notesDedup = deduplicateNotes(normalizedData.notes, existingNotes);
+  const medicationsDedup = deduplicateMedications(normalizedData.medications, existingMedications);
 
   const duplicateCount =
     glucoseDedup.duplicateCount +
     mealsDedup.duplicateCount +
     activitiesDedup.duplicateCount +
-    notesDedup.duplicateCount;
+    notesDedup.duplicateCount +
+    medicationsDedup.duplicateCount;
 
   const errorCount = normalizedData.glucose.length + normalizedData.meals.length +
-    normalizedData.activities.length + normalizedData.notes.length -
+    normalizedData.activities.length + normalizedData.notes.length +
+    normalizedData.medications.length -
     (glucoseDedup.unique.length + mealsDedup.unique.length +
-      activitiesDedup.unique.length + notesDedup.unique.length) - duplicateCount;
+      activitiesDedup.unique.length + notesDedup.unique.length +
+      medicationsDedup.unique.length) - duplicateCount;
 
   return {
     fileName,
@@ -160,15 +262,78 @@ export async function buildImportPreview(
     mealsCount: normalizedData.meals.length,
     activitiesCount: normalizedData.activities.length,
     notesCount: normalizedData.notes.length,
+    medicationsCount: normalizedData.medications.length,
     totalRecords:
       normalizedData.glucose.length +
       normalizedData.meals.length +
       normalizedData.activities.length +
-      normalizedData.notes.length,
+      normalizedData.notes.length +
+      normalizedData.medications.length,
     duplicateCount,
     errorCount: Math.max(0, errorCount),
     errors: [],
   };
+}
+
+/**
+ * Adds already-built records to a Dexie table, returning how many succeeded
+ * and collecting a single validation error per failed record. Shared by every
+ * entity pipeline so failure handling stays consistent.
+ */
+async function addImportRecords<T extends { id: string }>(
+  table: Dexie.Table<T, string>,
+  records: T[],
+  field: string,
+  message: string,
+  errors: ImportValidationError[]
+): Promise<number> {
+  let imported = 0;
+  for (const record of records) {
+    try {
+      await table.add(record);
+      imported++;
+    } catch {
+      errors.push({ recordIndex: imported + 1, field, message });
+    }
+  }
+  return imported;
+}
+
+/**
+ * Returns the provenance for an imported record: keeps an existing one
+ * (e.g. re-imported exports) or stamps this import as the origin.
+ */
+function resolveImportProvenance(
+  existing: DataProvenance | undefined,
+  recordedAt: string,
+  meta: ImportMeta,
+): DataProvenance {
+  return existing ?? {
+    source: "import",
+    sourceId: meta.sourceId,
+    importedAt: meta.importedAt,
+    recordedAt,
+  };
+}
+
+/**
+ * Builds the persisted records for one entity before the import transaction.
+ *
+ * All encryption happens here, outside the transaction: awaiting a promise
+ * inside a Dexie transaction with no pending IDB requests auto-commits it
+ * (PrematureCommitError under fake-indexeddb) once the code yields via await.
+ */
+async function buildImportRecords<TDb extends { id: string }, TRaw>(
+  rawRecords: TRaw[],
+  encrypt: (raw: TRaw) => SensitiveFields,
+  toRecord: (raw: TRaw, encryptedFields: SensitiveFields, encrypted: boolean) => TDb,
+): Promise<TDb[]> {
+  const records: TDb[] = [];
+  for (const raw of rawRecords) {
+    const { fields, encrypted } = await encryptSensitiveFields(encrypt(raw));
+    records.push(toRecord(raw, fields, encrypted));
+  }
+  return records;
 }
 
 /**
@@ -178,9 +343,8 @@ export async function buildImportPreview(
  * Stamps `data.imported` provenance on fresh records; records that already
  * carry provenance (e.g. re-imported exports) keep their original origin.
  *
- * IMPORTANT: All encryption is done BEFORE the transaction to avoid
- * PrematureCommitError in fake-indexeddb, which auto-commits transactions
- * when there are no pending IDB requests and the code yields via await.
+ * Records are built — and sensitive fields encrypted — before the transaction
+ * starts (see `buildImportRecords`); only the plain `add` calls run inside it.
  */
 export async function executeImport(
   userId: string,
@@ -189,192 +353,173 @@ export async function executeImport(
 ): Promise<ImportResult> {
   const db = getDatabase();
   const errors: ImportValidationError[] = [];
-  const importedAt = new Date().toISOString();
+  const importMeta: ImportMeta = {
+    userId,
+    importedAt: new Date().toISOString(),
+    sourceId: importProvenance?.sourceId,
+  };
 
-  const [curGlucose, curMeals, curActivities, curNotes] = await Promise.all([
+  const [curGlucose, curMeals, curActivities, curNotes, curMedications] = await Promise.all([
     glucoseRepository.findByUser(userId),
     mealRepository.findByUser(userId),
     activityRepository.findByUser(userId),
     noteRepository.findByUser(userId),
+    medicationRepository.findByUser(userId),
   ]);
 
   const glucoseDedup = deduplicateGlucose(normalizedData.glucose, curGlucose);
   const mealsDedup = deduplicateMeals(normalizedData.meals, curMeals);
   const activitiesDedup = deduplicateActivities(normalizedData.activities, curActivities);
   const notesDedup = deduplicateNotes(normalizedData.notes, curNotes);
+  const medicationsDedup = deduplicateMedications(normalizedData.medications, curMedications);
 
-  const glucoseRecords: Array<{ id: string; userId: string; value: number; unit: "mg/dL"; context: GlucoseContext; measuredAt: string; createdAt: string; updatedAt: string; provenance?: DataProvenance; notes?: string | EncryptedPayload }> = [];
-  for (const record of glucoseDedup.unique) {
-    const { fields, encrypted } = await encryptSensitiveFields({ notes: record.notes });
-    glucoseRecords.push({
+  const glucoseRecords = await buildImportRecords(
+    glucoseDedup.unique,
+    (r) => ({ notes: r.notes }),
+    (r, fields, encrypted): ImportGlucoseRecord => ({
       id: crypto.randomUUID(),
-      userId,
-      value: record.value,
+      userId: importMeta.userId,
+      value: r.value,
       unit: "mg/dL",
-      context: record.context as GlucoseContext,
-      measuredAt: record.measuredAt,
-      provenance: record.provenance ?? {
-        source: "import",
-        sourceId: importProvenance?.sourceId,
-        importedAt,
-        recordedAt: record.measuredAt,
-      },
-      createdAt: record.createdAt,
-      updatedAt: record.updatedAt,
-      notes: encrypted
-        ? (fields.notes as string | EncryptedPayload | undefined) ?? undefined
-        : record.notes,
-    });
-  }
+      context: r.context as GlucoseContext,
+      measuredAt: r.measuredAt,
+      provenance: resolveImportProvenance(r.provenance, r.measuredAt, importMeta),
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      notes: encrypted ? fields.notes : r.notes,
+    }),
+  );
 
-  const mealRecords: Array<{ id: string; userId: string; type: MealType; description: string | EncryptedPayload; consumedAt: string; createdAt: string; updatedAt: string; provenance?: DataProvenance; notes?: string | EncryptedPayload }> = [];
-  for (const record of mealsDedup.unique) {
-    const { fields, encrypted } = await encryptSensitiveFields({
-      description: record.description,
-      notes: record.notes,
-    });
-    mealRecords.push({
+  const mealRecords = await buildImportRecords(
+    mealsDedup.unique,
+    (r) => ({ description: r.description, notes: r.notes }),
+    (r, fields, encrypted): ImportMealRecord => ({
       id: crypto.randomUUID(),
-      userId,
-      type: record.type as MealType,
-      description: encrypted
-        ? (fields.description as string | EncryptedPayload) ?? ""
-        : record.description,
-      consumedAt: record.consumedAt,
-      provenance: record.provenance ?? {
-        source: "import",
-        sourceId: importProvenance?.sourceId,
-        importedAt,
-        recordedAt: record.consumedAt,
-      },
-      createdAt: record.createdAt,
-      updatedAt: record.updatedAt,
-      notes: encrypted
-        ? (fields.notes as string | EncryptedPayload | undefined) ?? undefined
-        : record.notes,
-    });
-  }
+      userId: importMeta.userId,
+      type: r.type as MealType,
+      description: encrypted ? fields.description ?? "" : r.description,
+      consumedAt: r.consumedAt,
+      provenance: resolveImportProvenance(r.provenance, r.consumedAt, importMeta),
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      notes: encrypted ? fields.notes : r.notes,
+    }),
+  );
 
-  const activityRecords: Array<{ id: string; userId: string; type: ActivityType; durationMinutes: number; startedAt: string; createdAt: string; updatedAt: string; provenance?: DataProvenance; notes?: string | EncryptedPayload }> = [];
-  for (const record of activitiesDedup.unique) {
-    const { fields, encrypted } = await encryptSensitiveFields({ notes: record.notes });
-    activityRecords.push({
+  const activityRecords = await buildImportRecords(
+    activitiesDedup.unique,
+    (r) => ({ notes: r.notes }),
+    (r, fields, encrypted): ImportActivityRecord => ({
       id: crypto.randomUUID(),
-      userId,
-      type: record.type as ActivityType,
-      durationMinutes: record.durationMinutes,
-      startedAt: record.startedAt,
-      provenance: record.provenance ?? {
-        source: "import",
-        sourceId: importProvenance?.sourceId,
-        importedAt,
-        recordedAt: record.startedAt,
-      },
-      createdAt: record.createdAt,
-      updatedAt: record.updatedAt,
-      notes: encrypted
-        ? (fields.notes as string | EncryptedPayload | undefined) ?? undefined
-        : record.notes,
-    });
-  }
+      userId: importMeta.userId,
+      type: r.type as ActivityType,
+      durationMinutes: r.durationMinutes,
+      startedAt: r.startedAt,
+      provenance: resolveImportProvenance(r.provenance, r.startedAt, importMeta),
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      notes: encrypted ? fields.notes : r.notes,
+    }),
+  );
 
-  const noteRecords: Array<{ id: string; userId: string; content: string | EncryptedPayload; createdAt: string; updatedAt: string; provenance?: DataProvenance }> = [];
-  for (const record of notesDedup.unique) {
-    const { fields, encrypted } = await encryptSensitiveFields({ content: record.content });
-    noteRecords.push({
+  const noteRecords = await buildImportRecords(
+    notesDedup.unique,
+    (r) => ({ content: r.content }),
+    (r, fields, encrypted): ImportNoteRecord => ({
       id: crypto.randomUUID(),
-      userId,
-      content: encrypted
-        ? (fields.content as string | EncryptedPayload) ?? ""
-        : record.content,
-      provenance: record.provenance ?? {
-        source: "import",
-        sourceId: importProvenance?.sourceId,
-        importedAt,
-        recordedAt: record.createdAt,
-      },
-      createdAt: record.createdAt,
-      updatedAt: record.updatedAt,
-    });
-  }
+      userId: importMeta.userId,
+      content: encrypted ? fields.content ?? "" : r.content,
+      provenance: resolveImportProvenance(r.provenance, r.createdAt, importMeta),
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    }),
+  );
+
+  const medicationRecords = await buildImportRecords(
+    medicationsDedup.unique,
+    (r) => ({ notes: r.notes }),
+    (r, fields, encrypted): ImportMedicationRecord => ({
+      id: crypto.randomUUID(),
+      userId: importMeta.userId,
+      name: r.name,
+      dosage: r.dosage,
+      unit: r.unit,
+      frequency: r.frequency,
+      route: r.route,
+      medicatedAt: r.medicatedAt,
+      provenance: resolveImportProvenance(r.provenance, r.medicatedAt, importMeta),
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      notes: encrypted ? fields.notes : r.notes,
+    }),
+  );
 
   let glucoseImported = 0;
   let mealsImported = 0;
   let activitiesImported = 0;
   let notesImported = 0;
+  let medicationsImported = 0;
 
   await db.transaction(
     "rw",
-    [db.glucoseReadings, db.meals, db.activities, db.notes],
+    [db.glucoseReadings, db.meals, db.activities, db.notes, db.medications],
     async () => {
       const glucoseTable = db.glucoseReadings as unknown as Dexie.Table<
-        { id: string; userId: string; value: number; unit: "mg/dL"; context: GlucoseContext; measuredAt: string; createdAt: string; updatedAt: string; provenance?: DataProvenance; notes?: string | EncryptedPayload },
+        ImportGlucoseRecord,
         string
       >;
       const mealTable = db.meals as unknown as Dexie.Table<
-        { id: string; userId: string; type: MealType; description: string | EncryptedPayload; consumedAt: string; createdAt: string; updatedAt: string; provenance?: DataProvenance; notes?: string | EncryptedPayload },
+        ImportMealRecord,
         string
       >;
       const activityTable = db.activities as unknown as Dexie.Table<
-        { id: string; userId: string; type: ActivityType; durationMinutes: number; startedAt: string; createdAt: string; updatedAt: string; provenance?: DataProvenance; notes?: string | EncryptedPayload },
+        ImportActivityRecord,
         string
       >;
       const noteTable = db.notes as unknown as Dexie.Table<
-        { id: string; userId: string; content: string | EncryptedPayload; createdAt: string; updatedAt: string; provenance?: DataProvenance },
+        ImportNoteRecord,
+        string
+      >;
+      const medicationTable = db.medications as unknown as Dexie.Table<
+        ImportMedicationRecord,
         string
       >;
 
-      for (const record of glucoseRecords) {
-        try {
-          await glucoseTable.add(record);
-          glucoseImported++;
-        } catch {
-          errors.push({
-            recordIndex: glucoseImported + 1,
-            field: "glucose",
-            message: "Erro ao importar registro de glicemia.",
-          });
-        }
-      }
-
-      for (const record of mealRecords) {
-        try {
-          await mealTable.add(record);
-          mealsImported++;
-        } catch {
-          errors.push({
-            recordIndex: mealsImported + 1,
-            field: "meal",
-            message: "Erro ao importar registro de refeição.",
-          });
-        }
-      }
-
-      for (const record of activityRecords) {
-        try {
-          await activityTable.add(record);
-          activitiesImported++;
-        } catch {
-          errors.push({
-            recordIndex: activitiesImported + 1,
-            field: "activity",
-            message: "Erro ao importar registro de atividade.",
-          });
-        }
-      }
-
-      for (const record of noteRecords) {
-        try {
-          await noteTable.add(record);
-          notesImported++;
-        } catch {
-          errors.push({
-            recordIndex: notesImported + 1,
-            field: "note",
-            message: "Erro ao importar observação.",
-          });
-        }
-      }
+      glucoseImported = await addImportRecords(
+        glucoseTable,
+        glucoseRecords,
+        "glucose",
+        "Erro ao importar registro de glicemia.",
+        errors
+      );
+      mealsImported = await addImportRecords(
+        mealTable,
+        mealRecords,
+        "meal",
+        "Erro ao importar registro de refeição.",
+        errors
+      );
+      activitiesImported = await addImportRecords(
+        activityTable,
+        activityRecords,
+        "activity",
+        "Erro ao importar registro de atividade.",
+        errors
+      );
+      notesImported = await addImportRecords(
+        noteTable,
+        noteRecords,
+        "note",
+        "Erro ao importar observação.",
+        errors
+      );
+      medicationsImported = await addImportRecords(
+        medicationTable,
+        medicationRecords,
+        "medication",
+        "Erro ao importar medicamento.",
+        errors
+      );
     }
   );
 
@@ -385,13 +530,16 @@ export async function executeImport(
     mealsImported,
     activitiesImported,
     notesImported,
+    medicationsImported,
     totalImported:
-      glucoseImported + mealsImported + activitiesImported + notesImported,
+      glucoseImported + mealsImported + activitiesImported + notesImported +
+      medicationsImported,
     duplicatesSkipped:
       glucoseDedup.duplicateCount +
       mealsDedup.duplicateCount +
       activitiesDedup.duplicateCount +
-      notesDedup.duplicateCount,
+      notesDedup.duplicateCount +
+      medicationsDedup.duplicateCount,
     errors,
   };
 }

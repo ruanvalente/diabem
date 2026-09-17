@@ -19,6 +19,9 @@ export type DashboardSummary = {
   notes: {
     count: number;
   };
+  medications: {
+    count: number;
+  };
   totalRecords: number;
 };
 
