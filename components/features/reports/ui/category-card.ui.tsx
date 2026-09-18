@@ -7,6 +7,7 @@ const CATEGORY_OPTIONS: { value: ReportCategory; label: string }[] = [
   { value: "meals", label: "Refeições" },
   { value: "activity", label: "Atividade física" },
   { value: "notes", label: "Observações" },
+  { value: "medications", label: "Medicamentos" },
 ];
 
 type CategoryCardProps = {

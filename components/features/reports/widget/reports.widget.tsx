@@ -15,6 +15,7 @@ import { useGlucose } from "@/lib/health/hooks/use-glucose";
 import { useMeals } from "@/lib/health/hooks/use-meals";
 import { useActivities } from "@/lib/health/hooks/use-activities";
 import { useNotes } from "@/lib/health/hooks/use-notes";
+import { useMedications } from "@/lib/health/hooks/use-medications";
 import { useIntelligence } from "@/lib/intelligence/use-intelligence";
 import {
   canShare,
@@ -57,7 +58,7 @@ export function ReportsWidget() {
     custom: null,
   });
   const [selectedCategories, setSelectedCategories] = useState<ReportCategory[]>(
-    ["glucose", "meals", "activity", "notes"],
+    ["glucose", "meals", "activity", "notes", "medications"],
   );
   const [report, setReport] = useState<ReportState>({ status: "idle" });
 
@@ -69,11 +70,13 @@ export function ReportsWidget() {
   const meals = useMeals(userId, range);
   const activities = useActivities(userId, range);
   const notes = useNotes(userId, range);
+  const medications = useMedications(userId, range);
 
   const glucoseFilters = glucose.applyFilters;
   const mealsFilters = meals.applyFilters;
   const activitiesFilters = activities.applyFilters;
   const notesFilters = notes.applyFilters;
+  const medicationsFilters = medications.applyFilters;
 
   useEffect(() => {
     if (!userId) return;
@@ -81,6 +84,7 @@ export function ReportsWidget() {
     void mealsFilters(range);
     void activitiesFilters(range);
     void notesFilters(range);
+    void medicationsFilters(range);
   }, [
     userId,
     range,
@@ -88,11 +92,21 @@ export function ReportsWidget() {
     mealsFilters,
     activitiesFilters,
     notesFilters,
+    medicationsFilters,
   ]);
 
   const isLoading =
-    glucose.isLoading || meals.isLoading || activities.isLoading || notes.isLoading;
-  const error = glucose.error ?? meals.error ?? activities.error ?? notes.error;
+    glucose.isLoading ||
+    meals.isLoading ||
+    activities.isLoading ||
+    notes.isLoading ||
+    medications.isLoading;
+  const error =
+    glucose.error ??
+    meals.error ??
+    activities.error ??
+    notes.error ??
+    medications.error;
 
   const analysisPeriod = useMemo(() => {
     if (!range.from || !range.to) return null;
@@ -136,6 +150,7 @@ export function ReportsWidget() {
         meals: meals.records,
         activities: activities.records,
         notes: notes.records,
+        medications: medications.records,
       };
       const data = buildReportData({
         records: sourceRecords,
@@ -163,6 +178,7 @@ export function ReportsWidget() {
     meals.records,
     activities.records,
     notes.records,
+    medications.records,
   ]);
 
   const handleExport = useCallback(
@@ -214,6 +230,7 @@ export function ReportsWidget() {
     void meals.reload();
     void activities.reload();
     void notes.reload();
+    void medications.reload();
   };
 
   return (

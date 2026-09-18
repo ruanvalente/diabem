@@ -19,6 +19,7 @@ const TYPE_COLORS: Record<string, string> = {
   meal: "bg-success/15 text-success",
   activity: "bg-warning/15 text-warning",
   note: "bg-destructive/15 text-destructive",
+  medication: "bg-info/15 text-info",
 };
 
 export function ReportPreview({
@@ -63,6 +64,12 @@ export function ReportPreview({
             <p className="text-xs text-muted-foreground">Atividades</p>
             <p className="text-lg font-bold text-foreground">
               {summary.activityCount}
+            </p>
+          </div>
+          <div className="rounded-xl bg-muted/50 p-3">
+            <p className="text-xs text-muted-foreground">Medicamentos</p>
+            <p className="text-lg font-bold text-foreground">
+              {summary.medicationCount}
             </p>
           </div>
         </div>
