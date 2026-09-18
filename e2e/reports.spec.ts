@@ -23,6 +23,19 @@ async function seedGlucose(page: Page, value: string) {
   await expect(page.getByText("Glicemia registrada com sucesso.")).toBeVisible();
 }
 
+async function seedMedication(page: Page) {
+  await goTo(page, "/medications");
+  await page.getByRole("button", { name: "Registrar", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Medicamento").fill("Metformina");
+  await dialog.getByLabel("Dosagem (opcional)").fill("500");
+  await dialog.getByLabel("Unidade (opcional)").fill("mg");
+  await dialog.getByLabel("Frequência (opcional)").fill("2x ao dia");
+  await dialog.getByLabel("Via de administração (opcional)").fill("oral");
+  await dialog.getByRole("button", { name: "Salvar medicamento" }).click();
+  await expect(page.getByText("Medicamento registrado com sucesso.")).toBeVisible();
+}
+
 test("generates a report from seeded data and shows the summary", async ({
   page,
 }) => {
@@ -71,4 +84,24 @@ test("filters categories before generating", async ({ page }) => {
 
   await page.getByRole("button", { name: "Gerar relatório" }).click();
   await expect(page.getByRole("button", { name: "PDF", exact: true })).toBeVisible();
+});
+
+test("includes medications in the generated report", async ({ page }) => {
+  await signup(page);
+  await seedMedication(page);
+
+  await goTo(page, "/reports");
+  await expect(
+    page.getByRole("checkbox", { name: "Medicamentos" }),
+  ).toBeChecked();
+
+  await page.getByRole("button", { name: "Gerar relatório" }).click();
+  await expect(page.getByRole("button", { name: "PDF", exact: true })).toBeVisible();
+
+  const reportPreview = page.locator('div[data-slot="card"]', {
+    hasText: "Relatório",
+  });
+  await expect(reportPreview.getByText("Medicamentos")).toBeVisible();
+  await expect(reportPreview.getByText("1", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Metformina · 500 mg · 2x ao dia · oral/)).toBeVisible();
 });

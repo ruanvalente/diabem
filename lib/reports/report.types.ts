@@ -3,6 +3,7 @@ import type {
   Activity,
   GlucoseReading,
   Meal,
+  Medication,
   Note,
 } from "@/lib/db/types";
 
@@ -11,7 +12,8 @@ export type ReportCategory =
   | "glucose"
   | "meals"
   | "activity"
-  | "notes";
+  | "notes"
+  | "medications";
 
 /** Supported output formats. */
 export type ReportFormat = "pdf" | "csv" | "json";
@@ -26,13 +28,14 @@ export type ReportSummary = {
   activityCount: number;
   activityTotalMinutes: number;
   noteCount: number;
+  medicationCount: number;
   totalRecords: number;
 };
 
 /** A single row in the report timeline. */
 export type ReportTimelineEntry = {
   at: string;
-  type: "glucose" | "meal" | "activity" | "note";
+  type: "glucose" | "meal" | "activity" | "note" | "medication";
   label: string;
   detail: string;
 };
@@ -53,4 +56,5 @@ export type ReportSourceRecords = {
   meals: Meal[];
   activities: Activity[];
   notes: Note[];
+  medications: Medication[];
 };

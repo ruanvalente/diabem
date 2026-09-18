@@ -2,6 +2,7 @@ import type {
   Activity,
   GlucoseReading,
   Meal,
+  Medication,
   Note,
 } from "@/lib/db/types";
 import {
@@ -9,6 +10,7 @@ import {
   GLUCOSE_CONTEXT_LABELS,
   MEAL_TYPE_LABELS,
 } from "@/lib/health/constants";
+import { formatMedicationDetails } from "@/lib/health/medication-display";
 import { formatDateShort, formatTime } from "@/lib/date";
 import type {
   ReportCategory,
@@ -44,6 +46,7 @@ export function buildReportSummary(
   meals: Meal[],
   activities: Activity[],
   notes: Note[],
+  medications: Medication[],
 ): ReportSummary {
   const values = glucose.map((g) => g.value);
   const totalMinutes = activities.reduce(
@@ -59,8 +62,13 @@ export function buildReportSummary(
     activityCount: activities.length,
     activityTotalMinutes: totalMinutes,
     noteCount: notes.length,
+    medicationCount: medications.length,
     totalRecords:
-      glucose.length + meals.length + activities.length + notes.length,
+      glucose.length +
+      meals.length +
+      activities.length +
+      notes.length +
+      medications.length,
   };
 }
 
@@ -78,12 +86,18 @@ function activityDetail(record: Activity): string {
   return `${label} · ${record.durationMinutes} min`;
 }
 
+function medicationDetail(record: Medication): string {
+  const details = formatMedicationDetails(record);
+  return details ? `${record.name} · ${details}` : record.name;
+}
+
 /** Builds the ordered, time-descending timeline for a report. */
 export function buildReportTimeline(
   glucose: GlucoseReading[],
   meals: Meal[],
   activities: Activity[],
   notes: Note[],
+  medications: Medication[],
 ): ReportTimelineEntry[] {
   const entries: ReportTimelineEntry[] = [
     ...glucose.map((g) => ({
@@ -110,6 +124,12 @@ export function buildReportTimeline(
       label: "Observação",
       detail: n.content,
     })),
+    ...medications.map((m) => ({
+      at: m.medicatedAt,
+      type: "medication" as const,
+      label: "Medicamento",
+      detail: medicationDetail(m),
+    })),
   ].sort((a, b) => b.at.localeCompare(a.at));
 
   return entries;
@@ -120,18 +140,26 @@ const CATEGORY_LABEL: Record<ReportCategory, string> = {
   meals: "Refeições",
   activity: "Atividade física",
   notes: "Observações",
+  medications: "Medicamentos",
 };
 
 /** Determines which record kinds are included given the selected categories. */
 export function resolveIncludedKinds(
   categories: ReportCategory[],
-): { glucose: boolean; meals: boolean; activity: boolean; notes: boolean } {
+): {
+  glucose: boolean;
+  meals: boolean;
+  activity: boolean;
+  notes: boolean;
+  medications: boolean;
+} {
   const set = new Set(categories);
   return {
     glucose: set.has("glucose"),
     meals: set.has("meals"),
     activity: set.has("activity"),
     notes: set.has("notes"),
+    medications: set.has("medications"),
   };
 }
 
@@ -144,9 +172,10 @@ export function buildReportData(input: BuildReportInput): ReportData {
   const meals = kinds.meals ? records.meals : [];
   const activities = kinds.activity ? records.activities : [];
   const notes = kinds.notes ? records.notes : [];
+  const medications = kinds.medications ? records.medications : [];
 
-  const summary = buildReportSummary(glucose, meals, activities, notes);
-  const timeline = buildReportTimeline(glucose, meals, activities, notes);
+  const summary = buildReportSummary(glucose, meals, activities, notes, medications);
+  const timeline = buildReportTimeline(glucose, meals, activities, notes, medications);
 
   return {
     generatedAt: generatedAt ?? new Date().toISOString(),
@@ -174,7 +203,7 @@ function toCsvRow(values: (string | number)[]): string {
 export function buildCsvRows(
   records: Pick<
     ReportSourceRecords,
-    "glucose" | "meals" | "activities" | "notes"
+    "glucose" | "meals" | "activities" | "notes" | "medications"
   >,
   categories: ReportCategory[],
 ): string {
@@ -236,6 +265,27 @@ export function buildCsvRows(
           formatDateShort(n.createdAt),
           formatTime(n.createdAt),
           n.content,
+        ]),
+      );
+    }
+  }
+
+  if (kinds.medications) {
+    rows.push(
+      toCsvRow(["tipo", "data", "hora", "medicamento", "dosagem", "frequência", "via", "observações"]),
+    );
+    for (const m of records.medications) {
+      const dosage = m.dosage ? (m.unit ? `${m.dosage} ${m.unit}` : m.dosage) : "";
+      rows.push(
+        toCsvRow([
+          "medicamento",
+          formatDateShort(m.medicatedAt),
+          formatTime(m.medicatedAt),
+          m.name,
+          dosage,
+          m.frequency ?? "",
+          m.route ?? "",
+          m.notes ?? "",
         ]),
       );
     }

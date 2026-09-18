@@ -77,6 +77,7 @@ async function buildPdf(data: ReportData): Promise<Blob> {
     `Refeições: ${s.mealCount}`,
     `Atividades: ${s.activityCount} (${s.activityTotalMinutes} min)`,
     `Observações: ${s.noteCount}`,
+    `Medicamentos: ${s.medicationCount}`,
     `Total de registros: ${s.totalRecords}`,
   ].filter((line): line is string => line != null);
 

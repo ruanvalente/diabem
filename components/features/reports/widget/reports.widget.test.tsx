@@ -11,6 +11,9 @@ vi.mock("@/lib/health/hooks/use-glucose", () => ({ useGlucose: vi.fn() }));
 vi.mock("@/lib/health/hooks/use-meals", () => ({ useMeals: vi.fn() }));
 vi.mock("@/lib/health/hooks/use-activities", () => ({ useActivities: vi.fn() }));
 vi.mock("@/lib/health/hooks/use-notes", () => ({ useNotes: vi.fn() }));
+vi.mock("@/lib/health/hooks/use-medications", () => ({
+  useMedications: vi.fn(),
+}));
 vi.mock("@/lib/intelligence/use-intelligence", () => ({
   useIntelligence: vi.fn(),
 }));
@@ -39,6 +42,7 @@ import { useGlucose } from "@/lib/health/hooks/use-glucose";
 import { useMeals } from "@/lib/health/hooks/use-meals";
 import { useActivities } from "@/lib/health/hooks/use-activities";
 import { useNotes } from "@/lib/health/hooks/use-notes";
+import { useMedications } from "@/lib/health/hooks/use-medications";
 import { useIntelligence } from "@/lib/intelligence/use-intelligence";
 import { toast } from "@/components/ui/toast";
 import { canShare, shareFile } from "@/lib/data-ownership/share";
@@ -49,6 +53,7 @@ const mockedUseGlucose = vi.mocked(useGlucose);
 const mockedUseMeals = vi.mocked(useMeals);
 const mockedUseActivities = vi.mocked(useActivities);
 const mockedUseNotes = vi.mocked(useNotes);
+const mockedUseMedications = vi.mocked(useMedications);
 const mockedUseIntelligence = vi.mocked(useIntelligence);
 const addToast = vi.mocked(toast.add);
 const mockedCanShare = vi.mocked(canShare);
@@ -89,6 +94,9 @@ beforeEach(() => {
     entityMock() as ReturnType<typeof useActivities>,
   );
   mockedUseNotes.mockReturnValue(entityMock() as ReturnType<typeof useNotes>);
+  mockedUseMedications.mockReturnValue(
+    entityMock() as ReturnType<typeof useMedications>,
+  );
   mockedUseIntelligence.mockReturnValue({
     result: null,
     isLoading: false,
@@ -105,6 +113,14 @@ beforeEach(() => {
 });
 
 describe("ReportsWidget", () => {
+  it("lists Medicamentos as a default selected category", () => {
+    render(<ReportsWidget />);
+
+    expect(
+      screen.getByRole("checkbox", { name: "Medicamentos" }),
+    ).toBeChecked();
+  });
+
   it("does not show a toast when generating the report", async () => {
     render(<ReportsWidget />);
 
