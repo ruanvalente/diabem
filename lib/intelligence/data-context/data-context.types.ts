@@ -10,9 +10,11 @@ import type {
 } from "../types/analytics.types";
 import type { Insight } from "../types/insight.types";
 
+export const DATA_CONTEXT_VERSION = 1;
+
 export type DataContextPeriod = {
-  from: string;
-  to: string;
+  start: string;
+  end: string;
 };
 
 export type NormalizedGlucoseRecord = {
@@ -31,6 +33,7 @@ export type NormalizedMealRecord = {
   type: Meal["type"];
   description: string;
   consumedAt: string;
+  notes?: string;
   provenance?: DataProvenance;
 };
 
@@ -40,6 +43,19 @@ export type NormalizedActivityRecord = {
   type: Activity["type"];
   durationMinutes: number;
   startedAt: string;
+  notes?: string;
+  provenance?: DataProvenance;
+};
+
+export type NormalizedMedicationRecord = {
+  kind: "medication";
+  id: string;
+  name: string;
+  dosage?: string;
+  unit?: string;
+  frequency?: string;
+  route?: string;
+  medicatedAt: string;
   provenance?: DataProvenance;
 };
 
@@ -55,7 +71,16 @@ export type DataContextRecord =
   | NormalizedGlucoseRecord
   | NormalizedMealRecord
   | NormalizedActivityRecord
+  | NormalizedMedicationRecord
   | NormalizedNoteRecord;
+
+export type DataContextRecords = {
+  glucose: NormalizedGlucoseRecord[];
+  meals: NormalizedMealRecord[];
+  activities: NormalizedActivityRecord[];
+  medications: NormalizedMedicationRecord[];
+  notes: NormalizedNoteRecord[];
+};
 
 export type DataSourceCount = {
   source: DataProvenance["source"];
@@ -70,20 +95,34 @@ export type DataContextProvenanceSummary = {
 };
 
 export type DataContext = {
+  contextVersion: number;
+  generatedAt: string;
   period: DataContextPeriod;
-  records: DataContextRecord[];
-  statistics: IntelligenceAnalytics;
-  insights: Insight[];
-  quality: DataQuality;
-  provenance: DataContextProvenanceSummary;
+  records: DataContextRecords;
+  statistics?: IntelligenceAnalytics;
+  insights?: Insight[];
+  quality?: DataQuality;
+  provenance?: DataContextProvenanceSummary;
+};
+
+export type DataContextIncludeOptions = {
+  glucose?: boolean;
+  meals?: boolean;
+  activities?: boolean;
+  medications?: boolean;
+  notes?: boolean;
+  statistics?: boolean;
+  insights?: boolean;
+  quality?: boolean;
+  provenance?: boolean;
 };
 
 export type DataContextOptions = {
   userId: string;
   period: DataContextPeriod;
-  includeNotes?: boolean;
+  include?: DataContextIncludeOptions;
 };
 
-export type DataContextServiceResult =
+export type DataContextResult =
   | { ok: true; data: DataContext }
   | { ok: false; error: string };

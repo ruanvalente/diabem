@@ -1,169 +1,137 @@
 import { glucoseRepository } from "@/lib/db/repositories/glucose.repository";
 import { mealRepository } from "@/lib/db/repositories/meal.repository";
 import { activityRepository } from "@/lib/db/repositories/activity.repository";
+import { medicationRepository } from "@/lib/db/repositories/medication.repository";
 import { noteRepository } from "@/lib/db/repositories/note.repository";
 import type {
-  DataProvenance,
+  Activity,
   GlucoseReading,
   Meal,
-  Activity,
+  Medication,
   Note,
 } from "@/lib/db/types";
-import { DataSource } from "@/lib/db/types";
-import { analyzeIntelligence } from "../intelligence.service";
-import type { AnalysisPeriod } from "../types/analytics.types";
 import type {
-  DataContext,
   DataContextOptions,
-  DataContextProvenanceSummary,
-  DataContextRecord,
-  DataContextServiceResult,
+  DataContextResult,
 } from "./data-context.types";
+import type { DataRecordKind } from "./context-options";
+import {
+  hasSelection,
+  resolveSelection,
+  validateDataContextOptions,
+} from "./context-options";
+import {
+  buildDataContext,
+  type ContextSourceData,
+} from "./context-builder";
+import {
+  filterRecordsByUser,
+  stripInternalFieldsFromRecords,
+} from "./context-security";
 
-function summarizeProvenance(
-  records: { provenance?: DataProvenance }[]
-): DataContextProvenanceSummary {
-  const bySource = new Map<DataSource, number>();
-  let unknown = 0;
-
-  for (const record of records) {
-    const source = record.provenance?.source;
-    if (source) {
-      bySource.set(source, (bySource.get(source) ?? 0) + 1);
-    } else {
-      unknown += 1;
-    }
-  }
-
-  const total = records.length;
-
-  return {
-    bySource: [...bySource.entries()].map(([source, count]) => ({
-      source,
-      count,
-    })),
-    knownSourceRate: total === 0 ? 0 : (total - unknown) / total,
-    unknownSourceCount: unknown,
-    totalRecords: total,
-  };
-}
-
-function normalizeRecords(input: {
-  glucose: GlucoseReading[];
-  meals: Meal[];
-  activities: Activity[];
-  notes: Note[];
-  includeNotes: boolean;
-}): DataContextRecord[] {
-  const records: DataContextRecord[] = [
-    ...input.glucose.map<DataContextRecord>((g) => ({
-      kind: "glucose",
-      id: g.id,
-      value: g.value,
-      context: g.context,
-      measuredAt: g.measuredAt,
-      notes: g.notes,
-      provenance: g.provenance,
-    })),
-    ...input.meals.map<DataContextRecord>((m) => ({
-      kind: "meal",
-      id: m.id,
-      type: m.type,
-      description: m.description,
-      consumedAt: m.consumedAt,
-      provenance: m.provenance,
-    })),
-    ...input.activities.map<DataContextRecord>((a) => ({
-      kind: "activity",
-      id: a.id,
-      type: a.type,
-      durationMinutes: a.durationMinutes,
-      startedAt: a.startedAt,
-      provenance: a.provenance,
-    })),
-  ];
-
-  if (input.includeNotes) {
-    records.push(
-      ...input.notes.map<DataContextRecord>((n) => ({
-        kind: "note",
-        id: n.id,
-        content: n.content,
-        createdAt: n.createdAt,
-        provenance: n.provenance,
-      }))
-    );
-  }
-
-  const timestamp = (record: DataContextRecord): string => {
-    switch (record.kind) {
-      case "glucose":
-        return record.measuredAt;
-      case "meal":
-        return record.consumedAt;
-      case "activity":
-        return record.startedAt;
-      case "note":
-        return record.createdAt;
-    }
-  };
-
-  return records.sort((a, b) => timestamp(a).localeCompare(timestamp(b)));
-}
+type UserScopedRecord = GlucoseReading | Meal | Activity | Medication | Note;
 
 /**
- * Builds a structured, explainable context of the user's data for a period.
- *
- * This is the boundary between the application and any future AI layer: the AI
- * must consume the output of this service (records, statistics, insights,
- * quality, provenance) instead of accessing IndexedDB or the crypto layer
- * directly. No data is shared automatically — the result stays local.
+ * The only boundary between application data and any consumer — including a
+ * future AI layer. Consumers call `getContext`; they never touch IndexedDB,
+ * Dexie, repositories, auth or crypto material directly.
  */
-export async function getDataContext(
-  options: DataContextOptions
-): Promise<DataContextServiceResult> {
-  try {
-    const { userId, period, includeNotes = false } = options;
-    const filter = { from: period.from, to: period.to };
-
-    const [glucose, meals, activities, notes] = await Promise.all([
-      glucoseRepository.findByUser(userId, filter),
-      mealRepository.findByUser(userId, filter),
-      activityRepository.findByUser(userId, filter),
-      noteRepository.findByUser(userId, filter),
-    ]);
-
-    const analysisPeriod: AnalysisPeriod = {
-      start: period.from,
-      end: period.to,
-    };
-
-    const analysis = analyzeIntelligence(
-      glucose,
-      meals,
-      activities,
-      notes,
-      analysisPeriod
-    );
-    if (!analysis.ok) {
-      return { ok: false, error: analysis.error };
+export const dataContextService = {
+  async getContext(options: DataContextOptions): Promise<DataContextResult> {
+    const validation = validateDataContextOptions(options);
+    if (!validation.ok) {
+      return { ok: false, error: validation.error };
     }
 
-    const data: DataContext = {
-      period,
-      records: normalizeRecords({ glucose, meals, activities, notes, includeNotes }),
-      statistics: analysis.data.analytics,
-      insights: analysis.data.insights,
-      quality: analysis.data.analytics.dataQuality,
-      provenance: summarizeProvenance([...glucose, ...meals, ...activities, ...notes]),
-    };
+    const period = validation.period;
+    const selection = resolveSelection(options.include);
 
-    return { ok: true, data };
-  } catch (error) {
-    return {
-      ok: false,
-      error:
-        error instanceof Error ? error.message : "Falha ao construir o contexto",
-    };
-  }
+    const nothingRequested =
+      !hasSelection(selection) &&
+      !selection.statistics &&
+      !selection.insights &&
+      !selection.quality &&
+      !selection.provenance;
+
+    if (nothingRequested) {
+      return { ok: false, error: "Nenhum tipo de dado foi solicitado." };
+    }
+
+    const filter = { from: period.start, to: period.end };
+
+    try {
+      const loaders: Record<
+        DataRecordKind,
+        () => Promise<UserScopedRecord[]>
+      > = {
+        glucose: () => glucoseRepository.findByUser(options.userId, filter),
+        meals: () => mealRepository.findByUser(options.userId, filter),
+        activities: () => activityRepository.findByUser(options.userId, filter),
+        medications: () =>
+          medicationRepository.findByUser(options.userId, filter),
+        notes: () => noteRepository.findByUser(options.userId, filter),
+      };
+
+      const results = await Promise.all(
+        selection.recordKinds.map(async (kind) => {
+          const owned = filterRecordsByUser(
+            await loaders[kind](),
+            options.userId
+          );
+          return {
+            kind,
+            records: stripInternalFieldsFromRecords(owned),
+          };
+        })
+      );
+
+      const sources: ContextSourceData = {
+        glucose: [],
+        meals: [],
+        activities: [],
+        medications: [],
+        notes: [],
+      };
+
+      for (const { kind, records } of results) {
+        switch (kind) {
+          case "glucose":
+            sources.glucose = records as GlucoseReading[];
+            break;
+          case "meals":
+            sources.meals = records as Meal[];
+            break;
+          case "activities":
+            sources.activities = records as Activity[];
+            break;
+          case "medications":
+            sources.medications = records as Medication[];
+            break;
+          case "notes":
+            sources.notes = records as Note[];
+            break;
+        }
+      }
+
+      const data = buildDataContext({ period, selection, sources });
+      return { ok: true, data };
+    } catch (error) {
+      return {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Falha ao construir o contexto",
+      };
+    }
+  },
+};
+
+/**
+ * Shorthand for `dataContextService.getContext`.
+ */
+export function getDataContext(
+  options: DataContextOptions
+): Promise<DataContextResult> {
+  return dataContextService.getContext(options);
 }
