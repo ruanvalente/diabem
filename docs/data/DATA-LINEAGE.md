@@ -131,24 +131,47 @@ Para consumo futuro por IA (plan §24 e §25), a **única** porta de entrada é 
 
 ```ts
 interface DataContextService {
-  getContext(options: DataContextOptions): Promise<DataContext>;
+  getContext(options: DataContextOptions): Promise<DataContextResult>;
 }
 ```
 
-Um `DataContext` agrega:
+O serviço valida o período e o `userId`, carrega **apenas** os tipos de dados
+solicitados (cada repositório com `findByUser(userId, { from, to })`), re-aplica
+o filtro de propriedade (*defense-in-depth*) e remove campos internos antes de
+montar o contexto.
 
 ```ts
 interface DataContext {
-  period: DataContextPeriod;
-  records: NormalizedRecord[];   // glucose/meal/activity/note
-  statistics: IntelligenceAnalytics;
-  insights: Insight[];
-  quality: DataQuality;
-  provenance: { bySource: DataSourceCount[]; knownSourceRate: number; ... };
+  contextVersion: number;      // DATA_CONTEXT_VERSION = 1
+  generatedAt: string;
+  period: DataContextPeriod;   // { start, end }
+  records: {
+    glucose: NormalizedGlucoseRecord[];
+    meals: NormalizedMealRecord[];
+    activities: NormalizedActivityRecord[];
+    medications: NormalizedMedicationRecord[];
+    notes: NormalizedNoteRecord[];      // excluído por padrão (texto livre)
+  };
+  statistics?: IntelligenceAnalytics;
+  insights?: Insight[];
+  quality?: DataQuality;
+  provenance?: DataContextProvenanceSummary;
 }
 ```
+
+As seções derivadas (`statistics`, `insights`, `quality`, `provenance`) são
+opcionais e controladas por `include`. `statistics`/`quality` reutilizam a
+pipeline de inteligência existente (`analyzeIntelligence`) — nunca são
+recalculadas em paralelo.
 
 A IA futura consome `DataContextService`, **nunca** IndexedDB, Crypto keys,
 autenticação ou APIs de dispositivo diretamente.
 
-Arquivo: `lib/intelligence/data-context/`
+Garantias de arquitetura: `docs/architecture/DATA-CONTEXT-ARCHITECTURE.md`.
+Análise determinística sobre o contexto: `docs/intelligence/LOCAL-INTELLIGENCE.md`.
+
+Arquivos:
+
+- `lib/intelligence/data-context/data-context.service.ts`
+- `lib/intelligence/data-context/data-context.types.ts`
+- `lib/intelligence/data-context/context-*.ts`

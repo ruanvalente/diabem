@@ -1,14 +1,19 @@
 export type {
   DataContext,
+  DataContextIncludeOptions,
   DataContextOptions,
   DataContextPeriod,
   DataContextProvenanceSummary,
   DataContextRecord,
-  DataContextServiceResult,
+  DataContextRecords,
+  DataContextResult,
+  DataSourceCount,
   NormalizedActivityRecord,
   NormalizedGlucoseRecord,
   NormalizedMealRecord,
+  NormalizedMedicationRecord,
   NormalizedNoteRecord,
-  DataSourceCount,
 } from "./data-context.types";
-export { getDataContext } from "./data-context.service";
+export type { DataContextSelection, DataRecordKind } from "./context-options";
+export { DATA_CONTEXT_VERSION } from "./data-context.types";
+export { dataContextService, getDataContext } from "./data-context.service";
