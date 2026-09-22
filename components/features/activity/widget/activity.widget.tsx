@@ -3,14 +3,14 @@
 import { useCallback, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth/use-auth";
 import { useActivities } from "@/lib/health/hooks/use-activities";
-import { ActivityList } from "@/components/features/activity/activity-list";
+import { ActivityList } from "@/components/features/activity/ui/activity-list.ui";
 import { ActivityFormDialog } from "@/components/features/activity/activity-form-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { Button } from "@/components/ui/button";
-import { ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_ORDER } from "@/lib/health/constants";
+import { ACTIVITY_TYPE_OPTIONS } from "@/lib/health/constants";
 import { resolvePeriodRange, type PeriodFilter as PeriodFilterValue } from "@/lib/date";
 import { toast } from "@/components/ui/toast";
 import type { Activity } from "@/lib/db/types";
@@ -27,7 +27,6 @@ export function ActivityWidget() {
 
   const baseFilter = useMemo(() => resolvePeriodRange(period), [period]);
 
-  const activities = useActivities(userId, baseFilter);
   const {
     records,
     isLoading,
@@ -37,7 +36,7 @@ export function ActivityWidget() {
     create,
     update,
     remove,
-  } = activities;
+  } = useActivities(userId, baseFilter);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<Activity | null>(null);
@@ -74,20 +73,18 @@ export function ActivityWidget() {
   const handleDelete = async () => {
     if (!deletingRecord) return;
     setIsDeleting(true);
-    const result = await remove(deletingRecord.id);
-    setIsDeleting(false);
-    if (result.ok) {
-      toast.add({ title: "Atividade excluída.", type: "success" });
-      setDeletingRecord(null);
-    } else {
-      toast.add({ title: result.error, type: "error" });
+    try {
+      const result = await remove(deletingRecord.id);
+      if (result.ok) {
+        toast.add({ title: "Atividade excluída.", type: "success" });
+        setDeletingRecord(null);
+      } else {
+        toast.add({ title: result.error, type: "error" });
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
-
-  const typeOptions = ACTIVITY_TYPE_ORDER.map((value) => ({
-    value,
-    label: ACTIVITY_TYPE_LABELS[value],
-  }));
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8">
@@ -100,7 +97,7 @@ export function ActivityWidget() {
             Registrar
           </Button>
         }
-        typeOptions={typeOptions}
+        typeOptions={ACTIVITY_TYPE_OPTIONS}
         typeValue={type ?? null}
         onTypeChange={handleTypeChange}
         periodValue={period}
