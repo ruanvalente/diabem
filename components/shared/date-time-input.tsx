@@ -10,6 +10,8 @@ export type DateTimeInputProps = {
   dateLabel?: string;
   timeLabel?: string;
   className?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
 };
 
 function splitValue(value: string): { date: string; time: string } {
@@ -28,11 +30,18 @@ export function DateTimeInput({
   dateLabel = "Data",
   timeLabel = "Horário",
   className,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedBy,
 }: DateTimeInputProps) {
   const { date, time } = splitValue(value);
 
   const update = (part: "date" | "time", next: string) => {
     onChange(part === "date" ? `${next}T${time}` : `${date}T${next}`);
+  };
+
+  const invalidProps = {
+    "aria-invalid": ariaInvalid,
+    "aria-describedby": ariaDescribedBy,
   };
 
   return (
@@ -50,6 +59,7 @@ export function DateTimeInput({
           value={date}
           onChange={(event) => update("date", event.target.value)}
           className="h-12 bg-muted/50"
+          {...invalidProps}
         />
       </div>
       <div>
@@ -65,6 +75,7 @@ export function DateTimeInput({
           value={time}
           onChange={(event) => update("time", event.target.value)}
           className="h-12 bg-muted/50"
+          {...invalidProps}
         />
       </div>
     </div>

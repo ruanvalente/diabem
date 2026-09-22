@@ -15,10 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { OptionPills } from "@/components/shared/option-pills";
 import { DateTimeInput } from "@/components/shared/date-time-input";
 import { toast } from "@/components/ui/toast";
-import {
-  ACTIVITY_TYPE_LABELS,
-  ACTIVITY_TYPE_ORDER,
-} from "@/lib/health/constants";
+import { ACTIVITY_TYPE_OPTIONS } from "@/lib/health/constants";
 import { activitySchema } from "@/lib/db/schema";
 import { toDateTimeLocalValue } from "@/lib/date";
 import { VoiceInputWidget } from "@/components/features/voice-input/widget/voice-input.widget";
@@ -30,6 +27,40 @@ const MESSAGES = {
   save: "Atividade registrada com sucesso.",
   update: "Atividade atualizada com sucesso.",
 };
+
+type FieldError = {
+  field: "type" | "duration" | "startedAt" | "notes";
+  message: string;
+};
+
+const ERROR_ID_BY_FIELD: Record<FieldError["field"], string> = {
+  type: "activity-type-error",
+  duration: "activity-duration-error",
+  startedAt: "activity-started-at-error",
+  notes: "activity-notes-error",
+};
+
+/**
+ * Maps the first zod issue of an activity validation to the form field that
+ * should display the error. Unknown paths fall back to the duration field.
+ */
+function toFieldError(
+  path: readonly PropertyKey[] | undefined,
+  message: string,
+): FieldError {
+  switch (path?.[0]) {
+    case "type":
+      return { field: "type", message };
+    case "startedAt":
+      return { field: "startedAt", message };
+    case "notes":
+      return { field: "notes", message };
+    case "durationMinutes":
+      return { field: "duration", message };
+    default:
+      return { field: "duration", message };
+  }
+}
 
 type ActivityFormDialogProps = {
   open: boolean;
@@ -49,8 +80,6 @@ export function ActivityFormDialog({
 }: ActivityFormDialogProps) {
   const isEditing = !!record;
 
-  // State is seeded during mount; the page remounts this dialog (via `key`)
-  // every time it is opened so the form always starts fresh.
   const [type, setType] = useState<Activity["type"] | undefined>(record?.type);
   const [duration, setDuration] = useState(
     record ? String(record.durationMinutes) : "",
@@ -61,7 +90,7 @@ export function ActivityFormDialog({
       : toDateTimeLocalValue(new Date()),
   );
   const [notes, setNotes] = useState(record?.notes ?? "");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FieldError | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleNotesTranscript = useCallback((text: string) => {
@@ -81,30 +110,36 @@ export function ActivityFormDialog({
     });
 
     if (!validation.success) {
-      setError(validation.error.issues[0]?.message ?? "Dados inválidos");
+      const issue = validation.error.issues[0];
+      setError(
+        toFieldError(issue?.path, issue?.message ?? "Dados inválidos"),
+      );
       return;
     }
 
     setIsSubmitting(true);
-    const result = await onSubmit(
-      {
-        type: validation.data.type,
-        durationMinutes: validation.data.durationMinutes,
-        startedAtLocal,
-        notes: validation.data.notes,
-      },
-      record ?? undefined,
-    );
-    setIsSubmitting(false);
+    try {
+      const result = await onSubmit(
+        {
+          type: validation.data.type,
+          durationMinutes: validation.data.durationMinutes,
+          startedAtLocal,
+          notes: validation.data.notes,
+        },
+        record ?? undefined,
+      );
 
-    if (result.ok) {
-      toast.add({
-        title: isEditing ? MESSAGES.update : MESSAGES.save,
-        type: "success",
-      });
-      onOpenChange(false);
-    } else {
-      toast.add({ title: result.error, type: "error" });
+      if (result.ok) {
+        toast.add({
+          title: isEditing ? MESSAGES.update : MESSAGES.save,
+          type: "success",
+        });
+        onOpenChange(false);
+      } else {
+        toast.add({ title: result.error, type: "error" });
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -130,10 +165,7 @@ export function ActivityFormDialog({
             </label>
             <OptionPills
               aria-labelledby="activity-type-label"
-              options={ACTIVITY_TYPE_ORDER.map((value) => ({
-                value,
-                label: ACTIVITY_TYPE_LABELS[value],
-              }))}
+              options={ACTIVITY_TYPE_OPTIONS}
               value={type ?? null}
               onChange={setType}
             />
@@ -143,6 +175,12 @@ export function ActivityFormDialog({
             id="activity-started-at"
             value={startedAtLocal}
             onChange={setStartedAtLocal}
+            aria-invalid={error?.field === "startedAt" || undefined}
+            aria-describedby={
+              error?.field === "startedAt"
+                ? ERROR_ID_BY_FIELD.startedAt
+                : undefined
+            }
           />
 
           <div>
@@ -160,8 +198,12 @@ export function ActivityFormDialog({
                 placeholder="30"
                 value={duration}
                 onChange={(event) => setDuration(event.target.value)}
-                aria-invalid={!!error}
-                aria-describedby={error ? "activity-duration-error" : undefined}
+                aria-invalid={error?.field === "duration" || undefined}
+                aria-describedby={
+                  error?.field === "duration"
+                    ? ERROR_ID_BY_FIELD.duration
+                    : undefined
+                }
                 className="h-12 bg-muted/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
               <span
@@ -185,6 +227,12 @@ export function ActivityFormDialog({
               placeholder="Ex: No parque com amigos"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
+              aria-invalid={error?.field === "notes" || undefined}
+              aria-describedby={
+                error?.field === "notes"
+                  ? ERROR_ID_BY_FIELD.notes
+                  : undefined
+              }
               className="my-2 lg:my-4 bg-muted/50"
             />
             <VoiceInputWidget
@@ -195,11 +243,11 @@ export function ActivityFormDialog({
 
           {error && (
             <p
-              id="activity-duration-error"
+              id={ERROR_ID_BY_FIELD[error.field]}
               role="alert"
               className="text-sm text-destructive"
             >
-              {error}
+              {error.message}
             </p>
           )}
         </div>

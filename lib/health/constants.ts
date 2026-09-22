@@ -54,6 +54,12 @@ export const ACTIVITY_TYPE_ORDER: ActivityType[] = [
   "other",
 ];
 
+export const ACTIVITY_TYPE_OPTIONS: { value: ActivityType; label: string }[] =
+  ACTIVITY_TYPE_ORDER.map((value) => ({
+    value,
+    label: ACTIVITY_TYPE_LABELS[value],
+  }));
+
 export const TIMELINE_EVENT_LABELS = {
   glucose: "Glicemia",
   meal: "Refeição",
