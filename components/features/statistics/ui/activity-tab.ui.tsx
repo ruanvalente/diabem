@@ -3,17 +3,11 @@ import { Activity as ActivityIcon } from "lucide-react";
 import type { ActivityStatistics } from "@/lib/analytics/statistics";
 import { VerticalBarChart } from "@/components/features/dashboard/charts/vertical-bar-chart";
 import { EmptyState } from "@/components/shared/empty-state";
+import { formatActivityDuration } from "@/lib/health/activity-display";
 
 type ActivityTabProps = {
   stats: ActivityStatistics;
 };
-
-function formatMinutes(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const remaining = minutes % 60;
-  return remaining > 0 ? `${hours}h ${remaining}min` : `${hours}h`;
-}
 
 export function ActivityTab({ stats }: ActivityTabProps) {
   if (!stats.hasEnoughData) {
@@ -62,7 +56,7 @@ export function ActivityTab({ stats }: ActivityTabProps) {
               Média diária
             </p>
             <p className="text-2xl font-bold tracking-tight text-foreground">
-              {formatMinutes(stats.averageMinutesPerDay)}
+              {formatActivityDuration(stats.averageMinutesPerDay)}
             </p>
             <p className="text-xs text-muted-foreground">por dia</p>
           </CardContent>
@@ -100,7 +94,7 @@ export function ActivityTab({ stats }: ActivityTabProps) {
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{item.label}</span>
                     <span className="font-medium text-foreground">
-                      {item.count} {item.count === 1 ? "registro" : "registros"} · {formatMinutes(item.totalMinutes)}
+                      {item.count} {item.count === 1 ? "registro" : "registros"} · {formatActivityDuration(item.totalMinutes)}
                     </span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-muted">

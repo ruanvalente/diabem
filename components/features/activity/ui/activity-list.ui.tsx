@@ -4,16 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { groupByLocalDay, formatTime } from "@/lib/date";
 import { ACTIVITY_TYPE_LABELS } from "@/lib/health/constants";
+import { formatActivityDuration } from "@/lib/health/activity-display";
 import type { Activity } from "@/lib/db/types";
 import { Pencil, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
-
-function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest === 0 ? `${hours}h` : `${hours}h ${rest}min`;
-}
 
 type ActivityListProps = {
   records: Activity[];
@@ -49,7 +43,7 @@ export function ActivityList({
                     </p>
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {formatTime(record.startedAt)} ·{" "}
-                      {formatDuration(record.durationMinutes)}
+                      {formatActivityDuration(record.durationMinutes)}
                       {record.notes ? ` · ${record.notes}` : ""}
                     </p>
                   </div>
