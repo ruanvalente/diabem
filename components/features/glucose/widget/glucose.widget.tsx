@@ -3,14 +3,14 @@
 import { useCallback, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth/use-auth";
 import { useGlucose } from "@/lib/health/hooks/use-glucose";
-import { GlucoseList } from "@/components/features/glucose/glucose-list";
+import { GlucoseList } from "@/components/features/glucose/ui/glucose-list.ui";
 import { GlucoseFormDialog } from "@/components/features/glucose/glucose-form-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { Button } from "@/components/ui/button";
-import { GLUCOSE_CONTEXT_LABELS, GLUCOSE_CONTEXT_ORDER } from "@/lib/health/constants";
+import { GLUCOSE_CONTEXT_OPTIONS } from "@/lib/health/constants";
 import { resolvePeriodRange, type PeriodFilter as PeriodFilterValue } from "@/lib/date";
 import { toast } from "@/components/ui/toast";
 import type { GlucoseReading } from "@/lib/db/types";
@@ -29,7 +29,6 @@ export function GlucoseWidget() {
 
   const baseFilter = useMemo(() => resolvePeriodRange(period), [period]);
 
-  const glucose = useGlucose(userId, baseFilter);
   const {
     records,
     isLoading,
@@ -39,7 +38,7 @@ export function GlucoseWidget() {
     create,
     update,
     remove,
-  } = glucose;
+  } = useGlucose(userId, baseFilter);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<GlucoseReading | null>(
@@ -80,20 +79,18 @@ export function GlucoseWidget() {
   const handleDelete = async () => {
     if (!deletingRecord) return;
     setIsDeleting(true);
-    const result = await remove(deletingRecord.id);
-    setIsDeleting(false);
-    if (result.ok) {
-      toast.add({ title: "Registro excluído.", type: "success" });
-      setDeletingRecord(null);
-    } else {
-      toast.add({ title: result.error, type: "error" });
+    try {
+      const result = await remove(deletingRecord.id);
+      if (result.ok) {
+        toast.add({ title: "Registro excluído.", type: "success" });
+        setDeletingRecord(null);
+      } else {
+        toast.add({ title: result.error, type: "error" });
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
-
-  const contextOptions = GLUCOSE_CONTEXT_ORDER.map((value) => ({
-    value,
-    label: GLUCOSE_CONTEXT_LABELS[value],
-  }));
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8">
@@ -106,7 +103,7 @@ export function GlucoseWidget() {
             Registrar
           </Button>
         }
-        contextOptions={contextOptions}
+        contextOptions={GLUCOSE_CONTEXT_OPTIONS}
         contextValue={context ?? null}
         onContextChange={handleContextChange}
         periodValue={period}
