@@ -1,5 +1,6 @@
 import { CheckCircle2, XCircle } from "lucide-react";
 import type { SyncHistoryEntry } from "@/lib/devices";
+import { formatDateTime } from "../utils/format-date-time";
 
 type SyncHistoryProps = {
   entries: SyncHistoryEntry[];
@@ -49,18 +50,5 @@ export function SyncHistory({ entries }: SyncHistoryProps) {
         </li>
       ))}
     </ul>
-  );
-}
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return (
-    date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) +
-    " às " +
-    date.toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
   );
 }

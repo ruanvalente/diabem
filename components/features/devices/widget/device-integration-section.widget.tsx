@@ -4,9 +4,8 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth/use-auth";
 import type { ConnectedDevice } from "@/lib/devices";
-import type { DeviceCapabilities } from "@/lib/browser/capabilities";
 import { useDevices } from "../hooks/use-devices";
-import { CapabilitySummary } from "../ui/capability-summary.ui";
+import { CapabilityRow } from "../ui/capability-row.ui";
 import { DeviceCard } from "../ui/device-card.ui";
 import { DeviceEmptyState } from "../ui/device-empty-state.ui";
 import { SyncHistory } from "../ui/sync-history.ui";
@@ -153,31 +152,5 @@ export function DeviceIntegrationSection() {
         onImported={refresh}
       />
     </Card>
-  );
-}
-
-function CapabilityRow({
-  capabilities,
-  anySupported,
-}: {
-  capabilities: DeviceCapabilities;
-  anySupported: boolean;
-}) {
-  return (
-    <div className="border-t border-border px-5 py-4">
-      <p className="text-sm font-medium text-foreground">
-        Recursos do dispositivo
-      </p>
-      <div className="mt-2">
-        <CapabilitySummary capabilities={capabilities} />
-      </div>
-      {!anySupported && (
-        <p className="mt-2 text-sm text-muted-foreground">
-          {capabilities.fileSystem.supported
-            ? "Importe seus dados por arquivo (CSV ou JSON)."
-            : "Nenhuma conexão de dispositivo é suportada neste navegador."}
-        </p>
-      )}
-    </div>
   );
 }

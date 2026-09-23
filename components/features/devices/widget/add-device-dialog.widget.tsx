@@ -18,6 +18,7 @@ import {
   type DeviceAdapter,
 } from "@/lib/devices";
 import { Loader2, Search, Radio, Plus } from "lucide-react";
+import { TRANSPORT_LABEL } from "../utils/transport";
 
 type AddDeviceDialogProps = {
   open: boolean;
@@ -152,7 +153,7 @@ export function AddDeviceDialog({
                       {device.manufacturer
                         ? `${device.manufacturer} · `
                         : ""}
-                      {device.transport === "bluetooth" ? "Bluetooth" : "USB / Serial"}
+                      {TRANSPORT_LABEL[device.transport]}
                     </p>
                   </div>
                   <Button size="sm" onClick={() => handleAdd(device)}>
