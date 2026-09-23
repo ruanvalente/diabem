@@ -14,13 +14,12 @@ import {
   getRecordDistributionData,
 } from "@/lib/analytics/charts";
 import { getRecentRecords } from "@/lib/analytics/dashboard";
-import type {
-  ActivityChartData,
-  DistributionData,
-  GlucoseChartData,
-  MealChartData,
-} from "@/lib/analytics/types";
-import { formatTime } from "@/lib/date";
+import {
+  formatPeriodRangeLabel,
+  formatTime,
+  periodAdverbial,
+  type PeriodSelection,
+} from "@/lib/date";
 import {
   Activity as ActivityIcon,
   Apple,
@@ -28,7 +27,12 @@ import {
   NotebookPen,
   Pill,
 } from "lucide-react";
-import type { QuickAction, RecentRecord, SummaryCard } from "../types";
+import type {
+  ChartCard,
+  QuickAction,
+  RecentRecord,
+  SummaryCard,
+} from "../types";
 
 export const QUICK_ACTIONS: QuickAction[] = [
   {
@@ -65,6 +69,14 @@ type DashboardData = {
   notes: Note[];
   medications: Medication[];
 };
+
+/** Builds the header subtitle from the selected period. */
+export function buildDashboardSubtitle(selection: PeriodSelection): string {
+  if (selection.period === "custom" && selection.custom) {
+    return `Acompanhamento ${formatPeriodRangeLabel(selection.custom)}.`;
+  }
+  return `Veja como foi seu acompanhamento ${periodAdverbial(selection)}.`;
+}
 
 /** Builds the "Resumo do período" cards from period-scoped records. */
 export function buildSummaryCards(
@@ -136,40 +148,10 @@ export function buildSummaryCards(
   ];
 }
 
-export type ChartCard =
-  | {
-      kind: "glucose";
-      title: string;
-      subtitle?: string;
-      summary: string;
-      isEmpty: boolean;
-      data: GlucoseChartData;
-    }
-  | {
-      kind: "activity";
-      title: string;
-      subtitle?: string;
-      summary: string;
-      isEmpty: boolean;
-      data: ActivityChartData;
-    }
-  | {
-      kind: "meals";
-      title: string;
-      subtitle?: string;
-      summary: string;
-      isEmpty: boolean;
-      data: MealChartData;
-    }
-  | {
-      kind: "distribution";
-      title: string;
-      subtitle?: string;
-      summary: string;
-      isEmpty: boolean;
-      data: DistributionData;
-    };
-
+/**
+ * Builds the chart cards ("Tendência da glicemia", "Distribuição por
+ * horário", "Atividade", "Refeições") from period-scoped records.
+ */
 export function buildDashboardCharts(
   data: DashboardData,
   range: { from?: string; to?: string },
@@ -244,6 +226,7 @@ export function buildDashboardCharts(
   return { cards, hasData };
 }
 
+/** Builds the "Registrados recentemente" list, merging record types sorted by recency. */
 export function buildRecentRecords(data: DashboardData): RecentRecord[] {
   const recent = getRecentRecords(data, 5);
   const items: RecentRecord[] = [
@@ -303,6 +286,7 @@ export function buildRecentRecords(data: DashboardData): RecentRecord[] {
   return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8);
 }
 
+/** Resolves the range assessment used in the "Última leitura" badge. */
 export function getLastReadingInfo(reading?: GlucoseReading) {
   if (!reading) return null;
   return getGlucoseRangeInfo(reading.value);
