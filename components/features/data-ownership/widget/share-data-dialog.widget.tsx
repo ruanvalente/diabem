@@ -12,17 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { dataOwnershipService } from "@/lib/data-ownership";
-import type { ExportFormat, ExportScope } from "@/lib/data-ownership";
+import type { ExportFormat } from "@/lib/data-ownership";
 import { SHARE_CONFIRMATION_MESSAGE } from "@/lib/data-ownership";
+import { useExportSelection } from "../hooks/use-export-selection";
+import { DataScopeCheckboxes } from "../ui/data-scope-checkboxes.ui";
 import { Loader2, Share2 } from "lucide-react";
-
-const DATA_TYPES: { key: keyof ExportScope; label: string }[] = [
-  { key: "glucose", label: "Glicemia" },
-  { key: "meals", label: "Alimentação" },
-  { key: "activities", label: "Atividade" },
-  { key: "notes", label: "Observações" },
-  { key: "medications", label: "Medicamentos" },
-];
 
 type ShareDataDialogProps = {
   open: boolean;
@@ -37,22 +31,17 @@ export function ShareDataDialog({
   userId,
   canShareFile,
 }: ShareDataDialogProps) {
-  const [format, setFormat] = useState<ExportFormat>("json");
-  const [scope, setScope] = useState<ExportScope>(() => dataOwnershipService.defaultScope);
+  const { format, setFormat, scope, toggleScope, anySelected } =
+    useExportSelection();
   const [confirming, setConfirming] = useState(false);
   const [isPending, setIsPending] = useState(false);
 
-  const anySelected =
-    scope.glucose || scope.meals || scope.activities || scope.notes ||
-    scope.medications;
-
-  function toggleScope(key: keyof ExportScope) {
-    setScope((prev) => ({ ...prev, [key]: !prev[key] }));
-  }
-
   const handleShare = async () => {
     if (!anySelected) {
-      toast.add({ title: "Selecione ao menos um tipo de dado.", type: "error" });
+      toast.add({
+        title: "Selecione ao menos um tipo de dado.",
+        type: "error",
+      });
       return;
     }
 
@@ -88,7 +77,8 @@ export function ShareDataDialog({
         <DialogHeader>
           <DialogTitle>Compartilhar dados</DialogTitle>
           <DialogDescription>
-            Ao compartilhar, você envia uma cópia dos seus dados para outro aplicativo.
+            Ao compartilhar, você envia uma cópia dos seus dados para outro
+            aplicativo.
           </DialogDescription>
         </DialogHeader>
 
@@ -127,27 +117,7 @@ export function ShareDataDialog({
               </div>
 
               <div>
-                <fieldset>
-                  <legend className="mb-2 text-sm font-medium text-foreground">
-                    Dados
-                  </legend>
-                  <div className="space-y-2">
-                    {DATA_TYPES.map((item) => (
-                      <label
-                        key={item.key}
-                        className="flex cursor-pointer items-center gap-3 rounded-lg p-2 hover:bg-muted"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={scope[item.key]}
-                          onChange={() => toggleScope(item.key)}
-                          className="size-4 accent-primary"
-                        />
-                        <span className="text-sm text-foreground">{item.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
+                <DataScopeCheckboxes scope={scope} onToggle={toggleScope} />
               </div>
             </>
           )}
