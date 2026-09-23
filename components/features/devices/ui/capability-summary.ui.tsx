@@ -1,5 +1,6 @@
 import { Bluetooth, Usb, FileUp, Nfc } from "lucide-react";
 import type { DeviceCapabilities } from "@/lib/browser/capabilities";
+import { TRANSPORT_LABEL } from "../utils/transport";
 
 type CapabilitySummaryProps = {
   capabilities: DeviceCapabilities;
@@ -18,8 +19,8 @@ export function CapabilitySummary({
       supported: capabilities.fileSystem.supported,
       icon: FileUp,
     },
-    { label: "Bluetooth", supported: capabilities.bluetooth.supported, icon: Bluetooth },
-    { label: "USB / Serial", supported: capabilities.serial.supported, icon: Usb },
+    { label: TRANSPORT_LABEL.bluetooth, supported: capabilities.bluetooth.supported, icon: Bluetooth },
+    { label: TRANSPORT_LABEL.serial, supported: capabilities.serial.supported, icon: Usb },
     { label: "NFC", supported: capabilities.nfc.supported, icon: Nfc },
   ];
 

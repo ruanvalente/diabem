@@ -16,10 +16,7 @@ import { OptionPills } from "@/components/shared/option-pills";
 import { DateTimeInput } from "@/components/shared/date-time-input";
 import { toast } from "@/components/ui/toast";
 import { getGlucoseRangeInfo } from "@/lib/health/glucose-range";
-import {
-  GLUCOSE_CONTEXT_LABELS,
-  GLUCOSE_CONTEXT_ORDER,
-} from "@/lib/health/constants";
+import { GLUCOSE_CONTEXT_OPTIONS } from "@/lib/health/constants";
 import { glucoseReadingSchema } from "@/lib/db/schema";
 import { toDateTimeLocalValue } from "@/lib/date";
 import { VoiceInputWidget } from "@/components/features/voice-input/widget/voice-input.widget";
@@ -42,6 +39,11 @@ type GlucoseFormDialogProps = {
   ) => Promise<ServiceResult<GlucoseReading>>;
 };
 
+/**
+ * Create/edit form for a single glucose reading. Form state is seeded during
+ * mount; the parent remounts this dialog (via `key`) every time it is opened so
+ * the form always starts fresh.
+ */
 export function GlucoseFormDialog({
   open,
   onOpenChange,
@@ -50,8 +52,6 @@ export function GlucoseFormDialog({
 }: GlucoseFormDialogProps) {
   const isEditing = !!record;
 
-  // State is seeded during mount; the page remounts this dialog (via `key`)
-  // every time it is opened so the form always starts fresh.
   const [value, setValue] = useState(() =>
     record ? String(record.value) : "",
   );
@@ -96,26 +96,29 @@ export function GlucoseFormDialog({
     }
 
     setIsSubmitting(true);
-    const result = await onSubmit(
-      {
-        value: validation.data.value,
-        context: validation.data.context,
-        measuredAtLocal,
-        notes: validation.data.notes,
-        provenanceSource: !isEditing && speechUsed ? "speech" : undefined,
-      },
-      record ?? undefined,
-    );
-    setIsSubmitting(false);
+    try {
+      const result = await onSubmit(
+        {
+          value: validation.data.value,
+          context: validation.data.context,
+          measuredAtLocal,
+          notes: validation.data.notes,
+          provenanceSource: !isEditing && speechUsed ? "speech" : undefined,
+        },
+        record ?? undefined,
+      );
 
-    if (result.ok) {
-      toast.add({
-        title: isEditing ? MESSAGES.update : MESSAGES.save,
-        type: "success",
-      });
-      onOpenChange(false);
-    } else {
-      toast.add({ title: result.error, type: "error" });
+      if (result.ok) {
+        toast.add({
+          title: isEditing ? MESSAGES.update : MESSAGES.save,
+          type: "success",
+        });
+        onOpenChange(false);
+      } else {
+        toast.add({ title: result.error, type: "error" });
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -187,10 +190,7 @@ export function GlucoseFormDialog({
             </label>
             <OptionPills
               aria-labelledby="glucose-context-label"
-              options={GLUCOSE_CONTEXT_ORDER.map((value) => ({
-                value,
-                label: GLUCOSE_CONTEXT_LABELS[value],
-              }))}
+              options={GLUCOSE_CONTEXT_OPTIONS}
               value={context ?? null}
               onChange={(next) => setContext(next)}
             />

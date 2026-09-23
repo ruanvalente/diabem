@@ -1,5 +1,7 @@
 import { Bluetooth, Usb, Smartphone } from "lucide-react";
 import type { ConnectedDevice } from "@/lib/devices";
+import { formatDateTime } from "../utils/format-date-time";
+import { TRANSPORT_LABEL } from "../utils/transport";
 
 type DeviceCardProps = {
   device: ConnectedDevice;
@@ -12,11 +14,6 @@ const TRANSPORT_ICON = {
   serial: Usb,
 } as const;
 
-const TRANSPORT_LABEL = {
-  bluetooth: "Bluetooth",
-  serial: "USB / Serial",
-} as const;
-
 /**
  * A single registered device row: name, transport badge, last sync time and
  * the sync/remove actions. Rendered inside the settings Card, so it stays a
@@ -27,7 +24,7 @@ export function DeviceCard({
   onSync,
   onRemove,
 }: DeviceCardProps) {
-  const Icon = isBluetooth(device) ? TRANSPORT_ICON.bluetooth : TRANSPORT_ICON.serial;
+  const Icon = TRANSPORT_ICON[device.transport] ?? TRANSPORT_ICON.serial;
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 p-4">
@@ -71,22 +68,5 @@ export function DeviceCard({
         </button>
       </div>
     </div>
-  );
-}
-
-function isBluetooth(device: ConnectedDevice): boolean {
-  return device.transport === "bluetooth";
-}
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return (
-    date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) +
-    " às " +
-    date.toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
   );
 }
