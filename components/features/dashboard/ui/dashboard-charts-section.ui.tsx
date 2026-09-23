@@ -14,7 +14,7 @@ import { VerticalBarChart } from "../charts/vertical-bar-chart";
 import { DistributionChart } from "../charts/distribution-chart";
 import { cn } from "@/lib/utils";
 import { BarChart3, Droplets } from "lucide-react";
-import type { ChartCard } from "../widget/dashboard.data";
+import type { ChartCard } from "../types";
 
 function renderChart(card: ChartCard): ReactNode {
   switch (card.kind) {

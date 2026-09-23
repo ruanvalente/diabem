@@ -1,5 +1,11 @@
 import type { LucideIcon } from "lucide-react";
 import type { TimelineEventType } from "@/lib/health/types";
+import type {
+  ActivityChartData,
+  DistributionData,
+  GlucoseChartData,
+  MealChartData,
+} from "@/lib/analytics/types";
 
 export type QuickAction = {
   icon: LucideIcon;
@@ -35,3 +41,37 @@ export type RecentRecord = {
   at: string;
   time: string;
 };
+
+export type ChartCard =
+  | {
+      kind: "glucose";
+      title: string;
+      subtitle?: string;
+      summary: string;
+      isEmpty: boolean;
+      data: GlucoseChartData;
+    }
+  | {
+      kind: "activity";
+      title: string;
+      subtitle?: string;
+      summary: string;
+      isEmpty: boolean;
+      data: ActivityChartData;
+    }
+  | {
+      kind: "meals";
+      title: string;
+      subtitle?: string;
+      summary: string;
+      isEmpty: boolean;
+      data: MealChartData;
+    }
+  | {
+      kind: "distribution";
+      title: string;
+      subtitle?: string;
+      summary: string;
+      isEmpty: boolean;
+      data: DistributionData;
+    };

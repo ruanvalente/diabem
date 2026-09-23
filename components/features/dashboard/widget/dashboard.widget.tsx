@@ -1,29 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth/use-auth";
-import { useGlucose } from "@/lib/health/hooks/use-glucose";
-import { useMeals } from "@/lib/health/hooks/use-meals";
-import { useActivities } from "@/lib/health/hooks/use-activities";
-import { useNotes } from "@/lib/health/hooks/use-notes";
-import { useMedications } from "@/lib/health/hooks/use-medications";
-import { useIntelligence } from "@/lib/intelligence/use-intelligence";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
 import { PeriodRangeFilter } from "@/components/shared/period-range-filter";
-import {
-  formatPeriodRangeLabel,
-  periodAdverbial,
-  resolvePeriodSelectionRange,
-  type PeriodSelection,
-} from "@/lib/date";
-import {
-  buildDashboardCharts,
-  buildRecentRecords,
-  buildSummaryCards,
-  getLastReadingInfo,
-  QUICK_ACTIONS,
-} from "./dashboard.data";
+import { useDashboardData } from "../hooks/use-dashboard-data";
+import { QUICK_ACTIONS } from "./dashboard.data";
 import { DashboardHeader } from "../ui/dashboard-header.ui";
 import { QuickActions } from "../ui/quick-actions.ui";
 import { LastReadingCard } from "../ui/last-reading-card.ui";
@@ -34,160 +16,56 @@ import { InsightsSection } from "../ui/insights-section.ui";
 import { InsightDetails } from "../ui/insight-details.ui";
 import { QualityIndicator } from "../ui/quality-indicator.ui";
 
-function getSubtitle(selection: PeriodSelection): string {
-  if (selection.period === "custom" && selection.custom) {
-    return `Acompanhamento ${formatPeriodRangeLabel(selection.custom)}.`;
-  }
-  return `Veja como foi seu acompanhamento ${periodAdverbial(selection)}.`;
-}
-
 export function DashboardWidget() {
   const { user } = useAuth();
-  const userId = user?.id ?? null;
-
-  const [selection, setSelection] = useState<PeriodSelection>({
-    period: "today",
-    custom: null,
-  });
-
-  const [range, setRange] = useState(() =>
-    resolvePeriodSelectionRange(selection),
-  );
-
-  useEffect(() => {
-    const refresh = () => setRange(resolvePeriodSelectionRange(selection));
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") refresh();
-    };
-    refresh();
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [selection]);
-
-  const glucose = useGlucose(userId, range);
-  const meals = useMeals(userId, range);
-  const activities = useActivities(userId, range);
-  const notes = useNotes(userId, range);
-  const medications = useMedications(userId, range);
-
-  const glucoseFilters = glucose.applyFilters;
-  const mealsFilters = meals.applyFilters;
-  const activitiesFilters = activities.applyFilters;
-  const notesFilters = notes.applyFilters;
-  const medicationsFilters = medications.applyFilters;
-
-  useEffect(() => {
-    if (!userId) return;
-    void glucoseFilters(range);
-    void mealsFilters(range);
-    void activitiesFilters(range);
-    void notesFilters(range);
-    void medicationsFilters(range);
-  }, [
-    userId,
-    range,
-    glucoseFilters,
-    mealsFilters,
-    activitiesFilters,
-    notesFilters,
-    medicationsFilters,
-  ]);
-
-  const isLoading =
-    glucose.isLoading ||
-    meals.isLoading ||
-    activities.isLoading ||
-    notes.isLoading ||
-    medications.isLoading;
-  const error =
-    glucose.error ??
-    meals.error ??
-    activities.error ??
-    notes.error ??
-    medications.error;
-
-  const data = {
-    glucose: glucose.records,
-    meals: meals.records,
-    activities: activities.records,
-    notes: notes.records,
-    medications: medications.records,
-  };
-
-  const analysisPeriod = useMemo(() => {
-    if (!range.from || !range.to) return null;
-    return { start: range.from, end: range.to };
-  }, [range]);
-
-  const intelligence = useIntelligence({
-    glucose: data.glucose,
-    meals: data.meals,
-    activities: data.activities,
-    notes: data.notes,
-    period: analysisPeriod,
-    enabled: !!analysisPeriod && !isLoading,
-  });
-
-  const adverbial = periodAdverbial(selection);
-  const summaryCards = buildSummaryCards(data, adverbial);
-  const charts = buildDashboardCharts(data, range);
-  const recentRecords = buildRecentRecords(data);
-  const lastGlucose = glucose.records[0];
-  const lastGlucoseRange = getLastReadingInfo(lastGlucose);
+  const dashboard = useDashboardData(user?.id ?? null);
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8">
       <DashboardHeader
         userName={user?.name}
-        subtitle={getSubtitle(selection)}
+        subtitle={dashboard.subtitle}
         action={
-          <PeriodRangeFilter value={selection} onChange={setSelection} />
+          <PeriodRangeFilter
+            value={dashboard.selection}
+            onChange={dashboard.setSelection}
+          />
         }
       />
 
-      {isLoading ? (
+      {dashboard.isLoading ? (
         <ListSkeleton rows={3} />
-      ) : error ? (
-        <ErrorState
-          message={error}
-          onRetry={() => {
-            void glucose.reload();
-            void meals.reload();
-            void activities.reload();
-            void notes.reload();
-            void medications.reload();
-          }}
-        />
+      ) : dashboard.error ? (
+        <ErrorState message={dashboard.error} onRetry={dashboard.reload} />
       ) : (
         <div className="space-y-8">
           <LastReadingCard
-            reading={lastGlucose}
-            rangeInfo={lastGlucoseRange}
-            count={glucose.records.length}
-            periodLabel={adverbial}
+            reading={dashboard.lastGlucose}
+            rangeInfo={dashboard.lastReadingInfo}
+            count={dashboard.glucoseCount}
+            periodLabel={dashboard.adverbial}
           />
           <QuickActions actions={QUICK_ACTIONS} />
-          <DaySummaryList cards={summaryCards} title="Resumo do período" />
-          {!isLoading && intelligence.result?.analytics.dataQuality && (
-            <QualityIndicator quality={intelligence.result.analytics.dataQuality} />
+          <DaySummaryList
+            cards={dashboard.summaryCards}
+            title="Resumo do período"
+          />
+          {dashboard.dataQuality && (
+            <QualityIndicator quality={dashboard.dataQuality} />
           )}
-          {!isLoading && intelligence.insights.length > 0 && (
+          {dashboard.insights.length > 0 && (
             <InsightsSection
-              insights={intelligence.insights}
+              insights={dashboard.insights}
               renderCardAction={(insight) => (
                 <InsightDetails insight={insight} />
               )}
             />
           )}
           <DashboardChartsSection
-            cards={charts.cards}
-            hasData={charts.hasData}
+            cards={dashboard.charts.cards}
+            hasData={dashboard.charts.hasData}
           />
-          <RecentRecords items={recentRecords} />
+          <RecentRecords items={dashboard.recentRecords} />
         </div>
       )}
     </div>
