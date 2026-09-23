@@ -12,21 +12,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { dataOwnershipService } from "@/lib/data-ownership";
-import type { ExportFormat, ExportScope } from "@/lib/data-ownership";
+import type { ExportFormat } from "@/lib/data-ownership";
 import { BACKUP_WARNING } from "@/lib/data-ownership";
+import { useExportSelection } from "../hooks/use-export-selection";
+import { DataScopeCheckboxes } from "../ui/data-scope-checkboxes.ui";
 import { Loader2, Download, Info } from "lucide-react";
 
-const DATA_TYPES: { key: keyof ExportScope; label: string }[] = [
-  { key: "glucose", label: "Glicemia" },
-  { key: "meals", label: "Alimentação" },
-  { key: "activities", label: "Atividade" },
-  { key: "notes", label: "Observações" },
-  { key: "medications", label: "Medicamentos" },
-];
-
 const FORMATS: { value: ExportFormat; label: string; description: string }[] = [
-  { value: "json", label: "JSON", description: "Recomendado para backup e migração" },
-  { value: "csv", label: "CSV", description: "Ideal para análise em planilhas" },
+  {
+    value: "json",
+    label: "JSON",
+    description: "Recomendado para backup e migração",
+  },
+  {
+    value: "csv",
+    label: "CSV",
+    description: "Ideal para análise em planilhas",
+  },
 ];
 
 type ExportDataDialogProps = {
@@ -40,21 +42,17 @@ export function ExportDataDialog({
   onOpenChange,
   userId,
 }: ExportDataDialogProps) {
-  const [format, setFormat] = useState<ExportFormat>("json");
-  const [scope, setScope] = useState<ExportScope>(() => dataOwnershipService.defaultScope);
+  const { format, setFormat, scope, toggleScope, anySelected } =
+    useExportSelection();
   const [showWarning, setShowWarning] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const anySelected =
-    scope.glucose ||
-    scope.meals ||
-    scope.activities ||
-    scope.notes ||
-    scope.medications;
-
   const handleExport = async () => {
     if (!anySelected) {
-      toast.add({ title: "Selecione ao menos um tipo de dado.", type: "error" });
+      toast.add({
+        title: "Selecione ao menos um tipo de dado.",
+        type: "error",
+      });
       return;
     }
 
@@ -68,15 +66,14 @@ export function ExportDataDialog({
       setShowWarning(false);
       onOpenChange(false);
     } catch {
-      toast.add({ title: "Não foi possível exportar seus dados.", type: "error" });
+      toast.add({
+        title: "Não foi possível exportar seus dados.",
+        type: "error",
+      });
     } finally {
       setIsExporting(false);
     }
   };
-
-  function toggleScope(key: keyof ExportScope) {
-    setScope((prev) => ({ ...prev, [key]: !prev[key] }));
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,7 +81,8 @@ export function ExportDataDialog({
         <DialogHeader>
           <DialogTitle>Exportar seus dados</DialogTitle>
           <DialogDescription>
-            Seus dados são exportados direto deste dispositivo. Nenhum dado é enviado para servidores.
+            Seus dados são exportados direto deste dispositivo. Nenhum dado é
+            enviado para servidores.
           </DialogDescription>
         </DialogHeader>
 
@@ -142,38 +140,25 @@ export function ExportDataDialog({
               </div>
 
               <div>
-                <fieldset>
-                  <legend className="mb-2 text-sm font-medium text-foreground">
-                    Dados
-                  </legend>
-                  <div className="space-y-2">
-                    {DATA_TYPES.map((item) => (
-                      <label
-                        key={item.key}
-                        className="flex cursor-pointer items-center gap-3 rounded-lg p-2 hover:bg-muted"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={scope[item.key]}
-                          onChange={() => toggleScope(item.key)}
-                          className="size-4 accent-primary"
-                        />
-                        <span className="text-sm text-foreground">{item.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
+                <DataScopeCheckboxes scope={scope} onToggle={toggleScope} />
               </div>
             </>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isExporting}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isExporting}
+          >
             Cancelar
           </Button>
           {!showWarning && (
-            <Button onClick={() => setShowWarning(true)} disabled={!anySelected}>
+            <Button
+              onClick={() => setShowWarning(true)}
+              disabled={!anySelected}
+            >
               <Download className="size-4" aria-hidden="true" />
               Exportar
             </Button>
