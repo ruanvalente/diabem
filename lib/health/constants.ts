@@ -20,6 +20,14 @@ export const GLUCOSE_CONTEXT_ORDER: GlucoseContext[] = [
   "other",
 ];
 
+export const GLUCOSE_CONTEXT_OPTIONS: {
+  value: GlucoseContext;
+  label: string;
+}[] = GLUCOSE_CONTEXT_ORDER.map((value) => ({
+  value,
+  label: GLUCOSE_CONTEXT_LABELS[value],
+}));
+
 export const MEAL_TYPE_LABELS: Record<MealType, string> = {
   breakfast: "Café da manhã",
   lunch: "Almoço",
