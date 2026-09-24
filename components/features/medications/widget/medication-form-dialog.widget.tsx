@@ -36,6 +36,55 @@ type MedicationFormDialogProps = {
   ) => Promise<ServiceResult<Medication>>;
 };
 
+type MedicationFieldProps = {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  inputMode?: "decimal";
+  invalid?: boolean;
+  describedBy?: string;
+};
+
+function MedicationField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  inputMode,
+  invalid,
+  describedBy,
+}: MedicationFieldProps) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-sm font-medium text-foreground"
+      >
+        {label}
+      </label>
+      <Input
+        id={id}
+        placeholder={placeholder}
+        inputMode={inputMode}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-invalid={invalid}
+        aria-describedby={describedBy}
+        className="h-12 bg-muted/50"
+      />
+    </div>
+  );
+}
+
+/**
+ * Medication create/edit form dialog.
+ *
+ * Initial state is seeded from `record` during mount; the parent remounts
+ * this dialog (via `key`) each time it opens so the form always starts fresh.
+ */
 export function MedicationFormDialog({
   open,
   onOpenChange,
@@ -44,8 +93,6 @@ export function MedicationFormDialog({
 }: MedicationFormDialogProps) {
   const isEditing = !!record;
 
-  // State is seeded during mount; the page remounts this dialog (via `key`)
-  // every time it is opened so the form always starts fresh.
   const [name, setName] = useState(record?.name ?? "");
   const [dosage, setDosage] = useState(record?.dosage ?? "");
   const [unit, setUnit] = useState(record?.unit ?? "");
@@ -127,23 +174,15 @@ export function MedicationFormDialog({
         </DialogHeader>
 
         <div className="space-y-5">
-          <div>
-            <label
-              htmlFor="medication-name"
-              className="mb-1.5 block text-sm font-medium text-foreground"
-            >
-              Medicamento
-            </label>
-            <Input
-              id="medication-name"
-              placeholder="Ex: Metformina"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              aria-invalid={!!error}
-              aria-describedby={error ? "medication-name-error" : undefined}
-              className="h-12 bg-muted/50"
-            />
-          </div>
+          <MedicationField
+            id="medication-name"
+            label="Medicamento"
+            placeholder="Ex: Metformina"
+            value={name}
+            onChange={setName}
+            invalid={!!error}
+            describedBy={error ? "medication-name-error" : undefined}
+          />
 
           <DateTimeInput
             id="medication-medicated-at"
@@ -152,70 +191,38 @@ export function MedicationFormDialog({
           />
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="medication-dosage"
-                className="mb-1.5 block text-sm font-medium text-foreground"
-              >
-                Dosagem (opcional)
-              </label>
-              <Input
-                id="medication-dosage"
-                placeholder="Ex: 500"
-                inputMode="decimal"
-                value={dosage}
-                onChange={(event) => setDosage(event.target.value)}
-                className="h-12 bg-muted/50"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="medication-unit"
-                className="mb-1.5 block text-sm font-medium text-foreground"
-              >
-                Unidade (opcional)
-              </label>
-              <Input
-                id="medication-unit"
-                placeholder="Ex: mg"
-                value={unit}
-                onChange={(event) => setUnit(event.target.value)}
-                className="h-12 bg-muted/50"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="medication-frequency"
-              className="mb-1.5 block text-sm font-medium text-foreground"
-            >
-              Frequência (opcional)
-            </label>
-            <Input
-              id="medication-frequency"
-              placeholder="Ex: 2x ao dia"
-              value={frequency}
-              onChange={(event) => setFrequency(event.target.value)}
-              className="h-12 bg-muted/50"
+            <MedicationField
+              id="medication-dosage"
+              label="Dosagem (opcional)"
+              placeholder="Ex: 500"
+              inputMode="decimal"
+              value={dosage}
+              onChange={setDosage}
+            />
+            <MedicationField
+              id="medication-unit"
+              label="Unidade (opcional)"
+              placeholder="Ex: mg"
+              value={unit}
+              onChange={setUnit}
             />
           </div>
 
-          <div>
-            <label
-              htmlFor="medication-route"
-              className="mb-1.5 block text-sm font-medium text-foreground"
-            >
-              Via de administração (opcional)
-            </label>
-            <Input
-              id="medication-route"
-              placeholder="Ex: oral"
-              value={route}
-              onChange={(event) => setRoute(event.target.value)}
-              className="h-12 bg-muted/50"
-            />
-          </div>
+          <MedicationField
+            id="medication-frequency"
+            label="Frequência (opcional)"
+            placeholder="Ex: 2x ao dia"
+            value={frequency}
+            onChange={setFrequency}
+          />
+
+          <MedicationField
+            id="medication-route"
+            label="Via de administração (opcional)"
+            placeholder="Ex: oral"
+            value={route}
+            onChange={setRoute}
+          />
 
           <div>
             <label
