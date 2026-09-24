@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { OptionPills } from "@/components/shared/option-pills";
 import { DateTimeInput } from "@/components/shared/date-time-input";
 import { toast } from "@/components/ui/toast";
-import { MEAL_TYPE_LABELS, MEAL_TYPE_ORDER } from "@/lib/health/constants";
+import { MEAL_TYPE_OPTIONS } from "@/lib/health/constants";
 import { mealSchema } from "@/lib/db/schema";
 import { toDateTimeLocalValue } from "@/lib/date";
 import { VoiceInputWidget } from "@/components/features/voice-input/widget/voice-input.widget";
@@ -46,8 +46,10 @@ export function MealFormDialog({
 }: MealFormDialogProps) {
   const isEditing = !!record;
 
-  // State is seeded during mount; the page remounts this dialog (via `key`)
-  // every time it is opened so the form always starts fresh.
+  /**
+   * State is seeded on mount; the parent remounts this dialog (via `key`) on
+   * every open so the form always starts fresh.
+   */
   const [type, setType] = useState<Meal["type"] | undefined>(record?.type);
   const [description, setDescription] = useState(record?.description ?? "");
   const [consumedAtLocal, setConsumedAtLocal] = useState(() =>
@@ -126,10 +128,7 @@ export function MealFormDialog({
             </label>
             <OptionPills
               aria-labelledby="meal-type-label"
-              options={MEAL_TYPE_ORDER.map((value) => ({
-                value,
-                label: MEAL_TYPE_LABELS[value],
-              }))}
+              options={MEAL_TYPE_OPTIONS}
               value={type ?? null}
               onChange={setType}
             />

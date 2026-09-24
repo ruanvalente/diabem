@@ -42,6 +42,14 @@ export const MEAL_TYPE_ORDER: MealType[] = [
   "snack",
 ];
 
+export const MEAL_TYPE_OPTIONS: {
+  value: MealType;
+  label: string;
+}[] = MEAL_TYPE_ORDER.map((value) => ({
+  value,
+  label: MEAL_TYPE_LABELS[value],
+}));
+
 export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   walking: "Caminhada",
   running: "Corrida",

@@ -3,14 +3,14 @@
 import { useCallback, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth/use-auth";
 import { useMeals } from "@/lib/health/hooks/use-meals";
-import { MealList } from "@/components/features/meals/meal-list";
-import { MealFormDialog } from "@/components/features/meals/meal-form-dialog";
+import { MealList } from "@/components/features/meals/ui/meal-list.ui";
+import { MealFormDialog } from "@/components/features/meals/widget/meal-form-dialog.widget";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { Button } from "@/components/ui/button";
-import { MEAL_TYPE_LABELS, MEAL_TYPE_ORDER } from "@/lib/health/constants";
+import { MEAL_TYPE_OPTIONS } from "@/lib/health/constants";
 import { resolvePeriodRange, type PeriodFilter as PeriodFilterValue } from "@/lib/date";
 import { toast } from "@/components/ui/toast";
 import type { Meal } from "@/lib/db/types";
@@ -84,11 +84,6 @@ export function MealWidget() {
     }
   };
 
-  const typeOptions = MEAL_TYPE_ORDER.map((value) => ({
-    value,
-    label: MEAL_TYPE_LABELS[value],
-  }));
-
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8">
       <MealPageHeader
@@ -100,7 +95,7 @@ export function MealWidget() {
             Registrar
           </Button>
         }
-        typeOptions={typeOptions}
+        typeOptions={MEAL_TYPE_OPTIONS}
         typeValue={type ?? null}
         onTypeChange={handleTypeChange}
         periodValue={period}
