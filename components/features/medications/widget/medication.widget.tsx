@@ -3,8 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth/use-auth";
 import { useMedications } from "@/lib/health/hooks/use-medications";
-import { MedicationList } from "@/components/features/medications/medication-list";
-import { MedicationFormDialog } from "@/components/features/medications/medication-form-dialog";
+import { MedicationList } from "@/components/features/medications/ui/medication-list.ui";
+import { MedicationFormDialog } from "@/components/features/medications/widget/medication-form-dialog.widget";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
