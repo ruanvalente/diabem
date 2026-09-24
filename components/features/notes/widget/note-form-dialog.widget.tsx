@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { noteSchema } from "@/lib/db/schema";
+import { firstErrorMessage } from "@/lib/health/validation";
 import type { Note } from "@/lib/db/types";
 import type {
   SaveNoteInput,
@@ -37,8 +38,10 @@ export function NoteFormDialog({
   record = null,
   onUpdate,
 }: NoteFormDialogProps) {
-  // State is seeded during mount; the page remounts this dialog (via `key`)
-  // every time it is opened so the form always starts fresh.
+  /**
+   * State is seeded during mount; the page remounts this dialog (via `key`)
+   * every time it is opened so the form always starts fresh.
+   */
   const [content, setContent] = useState(record?.content ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,7 +50,7 @@ export function NoteFormDialog({
     if (!record) return;
     const validation = noteSchema.safeParse({ content });
     if (!validation.success) {
-      setError(validation.error.issues[0]?.message ?? "Dados inválidos");
+      setError(firstErrorMessage(validation));
       return;
     }
 

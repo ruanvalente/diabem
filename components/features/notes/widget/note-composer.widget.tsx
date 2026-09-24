@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { noteSchema } from "@/lib/db/schema";
+import { firstErrorMessage } from "@/lib/health/validation";
 import { VoiceInputWidget } from "@/components/features/voice-input/widget/voice-input.widget";
 import type { SaveNoteInput, ServiceResult } from "@/lib/health/types";
 import { Loader2, StickyNote } from "lucide-react";
@@ -23,7 +24,7 @@ export function NoteComposer({ onCreate }: NoteComposerProps) {
   const handleSave = async () => {
     const validation = noteSchema.safeParse({ content });
     if (!validation.success) {
-      setError(validation.error.issues[0]?.message ?? "Dados inválidos");
+      setError(firstErrorMessage(validation));
       return;
     }
 
