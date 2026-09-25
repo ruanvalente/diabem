@@ -9,7 +9,9 @@ vi.mock("@/lib/auth/use-auth", () => ({
 
 vi.mock("@/lib/health/hooks/use-glucose", () => ({ useGlucose: vi.fn() }));
 vi.mock("@/lib/health/hooks/use-meals", () => ({ useMeals: vi.fn() }));
-vi.mock("@/lib/health/hooks/use-activities", () => ({ useActivities: vi.fn() }));
+vi.mock("@/lib/health/hooks/use-activities", () => ({
+  useActivities: vi.fn(),
+}));
 vi.mock("@/lib/health/hooks/use-notes", () => ({ useNotes: vi.fn() }));
 vi.mock("@/lib/health/hooks/use-medications", () => ({
   useMedications: vi.fn(),
@@ -60,6 +62,8 @@ const mockedCanShare = vi.mocked(canShare);
 const mockedShareFile = vi.mocked(shareFile);
 const mockedBuildReportFile = vi.mocked(buildReportFile);
 
+type EntityMock = ReturnType<typeof entityMock>;
+
 function entityMock(overrides: Record<string, unknown> = {}) {
   return {
     records: [],
@@ -74,7 +78,23 @@ function entityMock(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** Renders the widget, generates the report and waits for the preview actions. */
+/** Entity hooks of the current test, so assertions can reach their spies. */
+let entities: {
+  glucose: EntityMock;
+  meals: EntityMock;
+  activities: EntityMock;
+  notes: EntityMock;
+  medications: EntityMock;
+};
+
+const CATEGORY_LABELS = [
+  "Glicemia",
+  "Refeições",
+  "Atividade física",
+  "Observações",
+  "Medicamentos",
+];
+
 async function renderWithGeneratedReport() {
   render(<ReportsWidget />);
   fireEvent.click(screen.getByRole("button", { name: "Gerar relatório" }));
@@ -86,16 +106,23 @@ beforeEach(() => {
   mockedUseAuth.mockReturnValue({
     user: { id: "u1" },
   } as ReturnType<typeof useAuth>);
+  entities = {
+    glucose: entityMock(),
+    meals: entityMock(),
+    activities: entityMock(),
+    notes: entityMock(),
+    medications: entityMock(),
+  };
   mockedUseGlucose.mockReturnValue(
-    entityMock() as ReturnType<typeof useGlucose>,
+    entities.glucose as ReturnType<typeof useGlucose>,
   );
-  mockedUseMeals.mockReturnValue(entityMock() as ReturnType<typeof useMeals>);
+  mockedUseMeals.mockReturnValue(entities.meals as ReturnType<typeof useMeals>);
   mockedUseActivities.mockReturnValue(
-    entityMock() as ReturnType<typeof useActivities>,
+    entities.activities as ReturnType<typeof useActivities>,
   );
-  mockedUseNotes.mockReturnValue(entityMock() as ReturnType<typeof useNotes>);
+  mockedUseNotes.mockReturnValue(entities.notes as ReturnType<typeof useNotes>);
   mockedUseMedications.mockReturnValue(
-    entityMock() as ReturnType<typeof useMedications>,
+    entities.medications as ReturnType<typeof useMedications>,
   );
   mockedUseIntelligence.mockReturnValue({
     result: null,
@@ -225,8 +252,6 @@ describe("ReportsWidget", () => {
   it("shares the pre-built file without rebuilding it during the share gesture", async () => {
     await renderWithGeneratedReport();
 
-    // The PDF is built once at generation time so that navigator.share() runs
-    // synchronously inside the click gesture (preserving transient activation).
     expect(mockedBuildReportFile).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Compartilhar" }));
@@ -256,7 +281,6 @@ describe("ReportsWidget", () => {
       }),
     );
 
-    // PDF export must not rebuild the file that is already available.
     expect(mockedBuildReportFile).toHaveBeenCalledTimes(1);
   });
 
@@ -266,7 +290,6 @@ describe("ReportsWidget", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Gerar relatório" }));
 
-    // The preview renders even though the PDF could not be built.
     await screen.findByRole("button", { name: "PDF" });
 
     fireEvent.click(screen.getByRole("button", { name: "Compartilhar" }));
@@ -304,5 +327,84 @@ describe("ReportsWidget", () => {
         type: "error",
       }),
     );
+  });
+
+  it("filters every source by the resolved period", async () => {
+    render(<ReportsWidget />);
+
+    const range = {
+      from: expect.any(String),
+      to: expect.any(String),
+    };
+    await vi.waitFor(() => {
+      expect(entities.glucose.applyFilters).toHaveBeenCalledWith(range);
+      expect(entities.meals.applyFilters).toHaveBeenCalledWith(range);
+      expect(entities.activities.applyFilters).toHaveBeenCalledWith(range);
+      expect(entities.notes.applyFilters).toHaveBeenCalledWith(range);
+      expect(entities.medications.applyFilters).toHaveBeenCalledWith(range);
+    });
+  });
+
+  it("hides the generate action while the sources are loading", () => {
+    mockedUseGlucose.mockReturnValue({
+      ...entities.glucose,
+      isLoading: true,
+    } as ReturnType<typeof useGlucose>);
+
+    render(<ReportsWidget />);
+
+    expect(
+      screen.getByRole("status", { name: "Carregando registros" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Gerar relatório" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("surfaces a source error and reloads every source on retry", () => {
+    mockedUseNotes.mockReturnValue({
+      ...entities.notes,
+      error: "Falha ao carregar observações",
+    } as ReturnType<typeof useNotes>);
+
+    render(<ReportsWidget />);
+
+    expect(
+      screen.getByText("Falha ao carregar observações"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Gerar relatório" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+
+    for (const entity of Object.values(entities)) {
+      expect(entity.reload).toHaveBeenCalled();
+    }
+  });
+
+  it("disables the generate action when no category is selected", () => {
+    render(<ReportsWidget />);
+
+    for (const label of CATEGORY_LABELS) {
+      fireEvent.click(screen.getByRole("checkbox", { name: label }));
+    }
+
+    expect(
+      screen.getByRole("button", { name: "Gerar relatório" }),
+    ).toBeDisabled();
+  });
+
+  it("invalidates a generated report when a category is toggled", async () => {
+    await renderWithGeneratedReport();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Refeições" }));
+
+    expect(
+      screen.queryByRole("button", { name: "PDF" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Gerar relatório" }),
+    ).toBeInTheDocument();
   });
 });
