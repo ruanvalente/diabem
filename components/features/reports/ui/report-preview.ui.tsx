@@ -1,7 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Share2 } from "lucide-react";
-import type { ReportData } from "@/lib/reports";
+import type {
+  ReportData,
+  ReportFormat,
+  ReportTimelineEntry,
+} from "@/lib/reports";
 import { formatDateLong, formatTime } from "@/lib/date";
 
 type ReportPreviewProps = {
@@ -14,6 +18,12 @@ type ReportPreviewProps = {
   onShare: () => void;
 };
 
+const EXPORT_FORMATS: { format: ReportFormat; label: string }[] = [
+  { format: "pdf", label: "PDF" },
+  { format: "csv", label: "CSV" },
+  { format: "json", label: "JSON" },
+];
+
 const TYPE_COLORS: Record<string, string> = {
   glucose: "bg-primary/15 text-primary",
   meal: "bg-success/15 text-success",
@@ -21,6 +31,43 @@ const TYPE_COLORS: Record<string, string> = {
   note: "bg-destructive/15 text-destructive",
   medication: "bg-info/15 text-info",
 };
+
+const TIMELINE_LIMIT = 10;
+
+type SummaryTileProps = {
+  label: string;
+  value: string;
+};
+
+function SummaryTile({ label, value }: SummaryTileProps) {
+  return (
+    <div className="rounded-xl bg-muted/50 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-lg font-bold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+type TimelineRowProps = {
+  entry: ReportTimelineEntry;
+};
+
+function TimelineRow({ entry }: TimelineRowProps) {
+  return (
+    <li className="flex items-start gap-2 text-sm">
+      <span
+        className={`mt-0.5 inline-block size-2 shrink-0 rounded-full ${TYPE_COLORS[entry.type] ?? "bg-muted"}`}
+      />
+      <span className="text-foreground/80">
+        <span className="font-medium text-foreground">{entry.label}</span> ·{" "}
+        {entry.detail} ·{" "}
+        <span className="text-muted-foreground">
+          {formatDateLong(entry.at)} · {formatTime(entry.at)}
+        </span>
+      </span>
+    </li>
+  );
+}
 
 export function ReportPreview({
   data,
@@ -31,50 +78,41 @@ export function ReportPreview({
   onExportJson,
   onShare,
 }: ReportPreviewProps) {
-  const summary = data.summary;
-  const timelineSlice = data.timeline.slice(0, 10);
+  const { summary } = data;
+  const timelineSlice = data.timeline.slice(0, TIMELINE_LIMIT);
+
+  const summaryTiles: SummaryTileProps[] = [
+    { label: "Glicemias", value: String(summary.glucoseCount) },
+    {
+      label: "Média",
+      value:
+        summary.glucoseAverage != null
+          ? `${summary.glucoseAverage} mg/dL`
+          : "—",
+    },
+    { label: "Refeições", value: String(summary.mealCount) },
+    { label: "Atividades", value: String(summary.activityCount) },
+    { label: "Medicamentos", value: String(summary.medicationCount) },
+  ];
+
+  const exportHandlers: Record<ReportFormat, () => void> = {
+    pdf: onExportPdf,
+    csv: onExportCsv,
+    json: onExportJson,
+  };
 
   return (
-    <Card className="border-border shadow-[var(--shadow-card)]">
+    <Card className="border-border shadow-(--shadow-card)">
       <CardHeader>
-        <CardTitle className="text-base">
-          Relatório — {periodLabel}
-        </CardTitle>
+        <CardTitle className="text-base">Relatório — {periodLabel}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Summary */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-muted/50 p-3">
-            <p className="text-xs text-muted-foreground">Glicemias</p>
-            <p className="text-lg font-bold text-foreground">
-              {summary.glucoseCount}
-            </p>
-          </div>
-          <div className="rounded-xl bg-muted/50 p-3">
-            <p className="text-xs text-muted-foreground">Média</p>
-            <p className="text-lg font-bold text-foreground">
-              {summary.glucoseAverage != null ? `${summary.glucoseAverage} mg/dL` : "—"}
-            </p>
-          </div>
-          <div className="rounded-xl bg-muted/50 p-3">
-            <p className="text-xs text-muted-foreground">Refeições</p>
-            <p className="text-lg font-bold text-foreground">{summary.mealCount}</p>
-          </div>
-          <div className="rounded-xl bg-muted/50 p-3">
-            <p className="text-xs text-muted-foreground">Atividades</p>
-            <p className="text-lg font-bold text-foreground">
-              {summary.activityCount}
-            </p>
-          </div>
-          <div className="rounded-xl bg-muted/50 p-3">
-            <p className="text-xs text-muted-foreground">Medicamentos</p>
-            <p className="text-lg font-bold text-foreground">
-              {summary.medicationCount}
-            </p>
-          </div>
+          {summaryTiles.map((tile) => (
+            <SummaryTile key={tile.label} {...tile} />
+          ))}
         </div>
 
-        {/* Insights */}
         {data.insights.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">
@@ -93,7 +131,6 @@ export function ReportPreview({
           </div>
         )}
 
-        {/* Timeline */}
         {timelineSlice.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">
@@ -101,42 +138,24 @@ export function ReportPreview({
             </p>
             <ul className="space-y-1.5">
               {timelineSlice.map((entry, i) => (
-                <li
-                  key={`${entry.at}-${i}`}
-                  className="flex items-start gap-2 text-sm"
-                >
-                  <span
-                    className={`mt-0.5 inline-block size-2 shrink-0 rounded-full ${TYPE_COLORS[entry.type] ?? "bg-muted"}`}
-                  />
-                  <span className="text-foreground/80">
-                    <span className="font-medium text-foreground">
-                      {entry.label}
-                    </span>{" "}
-                    · {entry.detail} ·{" "}
-                    <span className="text-muted-foreground">
-                      {formatDateLong(entry.at)} · {formatTime(entry.at)}
-                    </span>
-                  </span>
-                </li>
+                <TimelineRow key={`${entry.at}-${i}`} entry={entry} />
               ))}
             </ul>
           </div>
         )}
 
-        {/* Actions */}
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1 gap-2" onClick={onExportPdf}>
-            <Download className="size-4" />
-            PDF
-          </Button>
-          <Button variant="outline" className="flex-1 gap-2" onClick={onExportCsv}>
-            <Download className="size-4" />
-            CSV
-          </Button>
-          <Button variant="outline" className="flex-1 gap-2" onClick={onExportJson}>
-            <Download className="size-4" />
-            JSON
-          </Button>
+          {EXPORT_FORMATS.map(({ format, label }) => (
+            <Button
+              key={format}
+              variant="outline"
+              className="flex-1 gap-2"
+              onClick={exportHandlers[format]}
+            >
+              <Download className="size-4" />
+              {label}
+            </Button>
+          ))}
           <Button variant="outline" className="flex-1 gap-2" onClick={onShare}>
             <Share2 className="size-4" />
             {canShareFile ? "Compartilhar" : "Baixar arquivo"}
