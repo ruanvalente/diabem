@@ -12,14 +12,28 @@ fallbacks, and the privacy decisions that govern their usage.
 | Aspect | Detail |
 |---|---|
 | Standard | W3C Notification API |
-| Secure context | Required (HTTPS or localhost) |
-| Permission | User gesture required to request |
-| Key methods | `Notification.requestPermission()`, `new Notification()` |
-| SSR safety | `notificationsCapability()` returns `{ supported: false }` during SSR |
+| Secure context | Obrigatório (HTTPS ou localhost) |
+| Permission | A solicitação exige gesto do usuário; `Notification.permission` é verificado em runtime |
+| Key methods | `Notification.requestPermission()`, `Notification.permission`, `ServiceWorkerRegistration.showNotification()`, `new Notification()` como fallback |
+| Delivery | Agendamento em foreground; sem assinatura do Push Manager, Notification Triggers ou Periodic Background Sync |
+| SSR safety | `notificationsCapability()` retorna `{ supported: false }` durante o SSR |
+
+A exibição usa `ServiceWorkerRegistration.showNotification()` quando há um
+Service Worker registrado e `new Notification()` como fallback
+(`lib/browser/services/notification.service.ts`). O Service Worker trata
+`notificationclick`, fecha a notificação e navega para uma URL validada pela
+lista `NOTIFICATION_ROUTES`; URLs não permitidas são resolvidas para
+`/dashboard` (`public/sw.js`).
+
+A versão atual dos caches do Service Worker é `CACHE_VERSION = "v3"`
+(`public/sw.js`). O agendamento é foreground, orquestrado por um Client
+Component, e não oferece entrega garantida com o app fechado.
 
 **Capabilities**: `lib/browser/capabilities/notifications.ts`
 **Service**: `lib/browser/services/notification.service.ts`
+**Types**: `lib/browser/services/notification.types.ts`
 **Hook**: `lib/browser/hooks/use-notifications.ts`
+**Runtime**: `components/features/notifications/widget/notification-runtime.widget.tsx`
 
 ### 2. Speech Recognition API (non-standard)
 
@@ -73,7 +87,7 @@ Every Progressive Web API follows the same principle: **no API is mandatory**.
 
 | API | Fallback when unsupported |
 |---|---|
-| Notifications | Silent in-app reminders only (no OS notification) |
+| Notifications | Sem notificação do sistema; os lembretes permanecem configurados, sem entrega garantida |
 | Speech Recognition | Keyboard/manual text input remains available |
 | Camera | Manual photo selection or no image attachment |
 
@@ -86,10 +100,12 @@ The capability detection layer (`lib/browser/capabilities/`) provides a boolean
 
 ### Notifications
 
-- Reminders use generic, non-sensitive titles (e.g., "Time for your medication")
-- No health data (glucose values, meals, etc.) is included in notification body
-- Permission is only requested on explicit user action (button click)
-- Notifications are only delivered while the app is open (no Background Sync)
+- Lembretes usam títulos genéricos e não sensíveis (por exemplo, "Lembre-se de registrar sua medição")
+- Nenhum dado de saúde (valores de glicose, refeições etc.) é incluído no corpo da notificação
+- A permissão só é solicitada após uma ação explícita do usuário (clique no botão)
+- `Notification.permission` é verificado em runtime e não é persistido no IndexedDB
+- O fluxo atual não assina o Push Manager, não usa Notification Triggers nem Periodic Background Sync
+- As notificações só são entregues enquanto o app está aberto; a UI de configurações exibe **“Lembretes dependem do app aberto”**
 
 ### Speech Recognition
 
@@ -105,12 +121,14 @@ The capability detection layer (`lib/browser/capabilities/`) provides a boolean
 - Camera is automatically stopped when the tab becomes hidden
 - Images are captured client-side; no image is sent to any server automatically
 
-### localStorage Reminders
+### localStorage Reminders (legado)
 
-- Reminder data is stored locally in `localStorage`
-- Reminder content is intentionally generic (no health data)
-- Maximum 50 reminders per device
-- Reminders are device-scoped; no sync across devices
+- O `reminderService` legado ainda armazena dados em `localStorage`
+- O conteúdo é intencionalmente genérico (sem dados de saúde)
+- O limite é de 50 lembretes por dispositivo
+- Os lembretes são locais do dispositivo, sem sincronização entre dispositivos
+- O serviço não é importado pela UI atual; os lembretes de usuário são persistidos em IndexedDB
+- A exclusão de dados chama `clearReminders()` separadamente, fora da transação Dexie
 
 ---
 
@@ -169,7 +187,7 @@ lib/browser/
 │   ├── use-speech-recognition.ts
 │   ├── use-camera.ts
 │   └── use-browser-capabilities.ts
-├── reminders/             # localStorage reminder persistence
+├── reminders/             # legacy localStorage reminder persistence
 │   ├── reminder.service.ts
 │   └── index.ts
 └── environment.ts         # SSR-safe environment detection

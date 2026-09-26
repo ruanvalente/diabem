@@ -13,9 +13,13 @@ import type {
   SyncHistoryEntry,
 } from "../devices/types/device.types";
 import type { AuditEntry } from "../audit/audit.types";
+import type {
+  NotificationPreferences,
+  NotificationSchedule,
+} from "../notifications/types";
 
 const DB_NAME = "diabem";
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 class DiaBemDatabase extends Dexie {
   users!: Table<User, string>;
@@ -26,6 +30,10 @@ class DiaBemDatabase extends Dexie {
   notes!: Table<Note, string>;
   /** Medication intake records (Sprint 12). */
   medications!: Table<Medication, string>;
+  /** User-owned notification schedules (Sprint 15). */
+  notificationSchedules!: Table<NotificationSchedule, string>;
+  /** Per-user notification preferences, keyed by userId (Sprint 15). */
+  notificationPreferences!: Table<NotificationPreferences, string>;
   /** Registered devices (Device Registry). */
   devices!: Table<ConnectedDevice, string>;
   /** Device sync history for the current user. */
@@ -71,6 +79,8 @@ class DiaBemDatabase extends Dexie {
       devices: "id, userId, adapterId, transport, lastSyncAt",
       syncHistory: "id, userId, deviceId, syncedAt",
       auditTrail: "id, userId, [userId+timestamp], entity, entityId, action",
+      notificationSchedules: "id, userId, [userId+updatedAt], [userId+period]",
+      notificationPreferences: "userId, updatedAt",
     });
   }
 }
