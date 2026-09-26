@@ -1,24 +1,36 @@
-/**
- * Shared types for the Notifications feature.
- *
- * The Application layer (components/widgets) should rely on these types rather
- * than on the raw `Notification` browser interface so implementations can be
- * swapped/tested.
- */
+import type { NotificationPermissionState } from "../capabilities/notifications";
 
-export type NotificationPermissionState =
-  | "granted"
-  | "denied"
-  | "default"
-  | "unsupported";
+export type { NotificationPermissionState };
 
-export type DialNotificationOptions = {
-  title: string;
-  body?: string;
-};
+export type NotificationTransport = "service-worker" | "constructor";
 
-export type NotificationErrorReason =
+export type NotificationFailureReason =
   | "unsupported"
   | "permission-denied"
-  | "insecure-context"
-  | "unknown";
+  | "permission-not-granted"
+  | "show-failed";
+
+export type NotificationPayload = {
+  title: string;
+  body?: string;
+  icon?: string;
+  badge?: string;
+  tag?: string;
+  url?: string;
+};
+
+export type NotifyResult =
+  | { ok: true; transport: NotificationTransport }
+  | {
+      ok: false;
+      reason: NotificationFailureReason;
+      fallback: true;
+    };
+
+export type RequestPermissionResult =
+  | { ok: true; permission: NotificationPermissionState }
+  | {
+      ok: false;
+      reason: Extract<NotificationFailureReason, "unsupported" | "permission-denied">;
+      permission: NotificationPermissionState;
+    };

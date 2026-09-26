@@ -5,6 +5,7 @@ import { mealRepository } from "../db/repositories/meal.repository";
 import { activityRepository } from "../db/repositories/activity.repository";
 import { noteRepository } from "../db/repositories/note.repository";
 import { medicationRepository } from "../db/repositories/medication.repository";
+import { notificationScheduleRepository } from "../db/repositories/notification-schedule.repository";
 import { exportAsJson, exportAsCsv } from "./export/exporter";
 import { parseFileContent } from "./import/importer";
 import { detectFileKind, validateFile } from "./import/validator";
@@ -44,6 +45,8 @@ beforeEach(async () => {
       db.medications,
       db.users,
       db.sessions,
+      db.notificationSchedules,
+      db.notificationPreferences,
     ],
     async () => {
       await Promise.all([
@@ -52,6 +55,8 @@ beforeEach(async () => {
         db.activities.where("userId").equals(TEST_USER_ID).delete(),
         db.notes.where("userId").equals(TEST_USER_ID).delete(),
         db.medications.where("userId").equals(TEST_USER_ID).delete(),
+        db.notificationSchedules.clear(),
+        db.notificationPreferences.clear(),
       ]);
     }
   );
@@ -1312,6 +1317,43 @@ describe("Data Ownership — Delete", () => {
     expect(activities.length).toBe(0);
     expect(notes.length).toBe(0);
     expect(medications.length).toBe(0);
+  });
+
+  it("deletes the user's notification schedules and preferences", async () => {
+    const db = getDatabase();
+    await notificationScheduleRepository.create(TEST_USER_ID, {
+      label: "Medição da manhã",
+      period: "morning",
+      time: "08:00",
+      enabled: true,
+      daysOfWeek: ["monday"],
+      reminderTypes: ["glucose"],
+    });
+    await notificationScheduleRepository.updatePreferences(TEST_USER_ID, {
+      enabled: true,
+      quietHours: { enabled: true, start: "22:00", end: "07:00" },
+    });
+
+    await deleteUserHealthData(TEST_USER_ID);
+
+    expect(await db.notificationSchedules.count()).toBe(0);
+    expect(await db.notificationPreferences.get(TEST_USER_ID)).toBeUndefined();
+  });
+
+  it("does not delete another user's notification schedules", async () => {
+    await notificationScheduleRepository.create("other-user", {
+      label: "Lembrete de outro usuário",
+      period: "night",
+      time: "20:00",
+      enabled: true,
+      daysOfWeek: ["friday"],
+      reminderTypes: ["meal"],
+    });
+
+    await deleteUserHealthData(TEST_USER_ID);
+
+    const remaining = await notificationScheduleRepository.findByUser("other-user");
+    expect(remaining.length).toBe(1);
   });
 
   it("purges the user's sessions on deletion (logs out)", async () => {

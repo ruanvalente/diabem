@@ -1281,17 +1281,21 @@ IndexedDB
 
 ## 35.3 Migração e compatibilidade
 
-A migração Dexie `v3` adiciona `keySalt` aos usuários. Registros legados em
-texto puro são migrados para o formato criptografado na gravação
+A migração Dexie `v3` adicionou `keySalt` aos usuários; o esquema atual é `v7` e
+também declara `notificationSchedules` e `notificationPreferences`. Registros
+legados em texto puro são migrados para o formato criptografado na gravação
 (`encryptSensitiveFields` é idempotente). Falhas de descriptografia degradam
 para valor vazio (ou `undefined`) sem quebrar a listagem inteira.
 
 ## 35.4 Service Worker e offline
 
-- `public/sw.js` é restrito a responsabilidades de cache: pré-cache do shell,
-  **cache-first para estáticos**, **network-first para navegação** com fallback
-  de shell, caches versionados (`diabem-static-v<N>`, `diabem-runtime-v<N>`) e
-  limpeza de caches antigos.
+- `public/sw.js` é restrito a responsabilidades de cache da aplicação e ao
+  roteamento de notificações: pré-cache do shell, **cache-first para estáticos**,
+  **network-first para navegação** com fallback de shell, caches versionados
+  (`diabem-static-v<N>`, `diabem-runtime-v<N>`) e limpeza de caches antigos.
+- No `notificationclick`, o worker valida a URL contra a lista permitida
+  `NOTIFICATION_ROUTES`; URLs fora da lista são resolvidas para `/dashboard`
+  (`public/sw.js`).
 - Em **desenvolvimento** (origens `localhost`, `127.0.0.1`, `::1` ou
   `*.local`) o cache-first de estáticos é **desativado**: o Turbopack renomeia
   módulos a cada hot reload e o cache serviria chunks obsoletos ("module
@@ -1535,8 +1539,12 @@ nenhuma capacidade é suportada, a UI oferece fallback para importação por arq
 ## 36.7 Integração com Data Ownership
 
 `deleteUserHealthData` (`lib/data-ownership/delete-service.ts`) purga também o
-device registry e o histórico de sync do usuário, garantindo que "apagar meus
-dados" remova tudo (exceto conta/sessão).
+device registry, o histórico de sync, a trilha de auditoria, os
+`notificationSchedules` e as `notificationPreferences` do usuário. Todas essas
+tabelas são operadas na mesma transação Dexie, garantindo que "apagar meus dados"
+remova os dados de notificações junto com os demais dados do usuário. A conta é
+preservada; as sessões são removidas. O serviço legado em `localStorage` é
+limpo separadamente depois da transação, pois não faz parte do IndexedDB.
 
 ## 36.8 Segurança e privacidade
 
@@ -1562,3 +1570,113 @@ Sincronização automática/contínua, background sync, suporte a dezenas de
 fabricantes, cloud, Apple Health/Google Health Connect, IA interpretando dados
 do dispositivo e MCP conectado diretamente aos dispositivos permanecem fora do
 MVP e não foram implementados.
+
+---
+
+# 37. Módulo de Notificações Locais (Sprint 15)
+
+O módulo `lib/notifications/` implementa lembretes configuráveis com persistência
+e entrega locais. A feature é apresentada em `components/features/notifications/`
+e o agendamento é best-effort: a entrega depende de o documento do app estar
+aberto.
+
+## 37.1 Escopo e dependências
+
+O módulo concentra os tipos e constantes do domínio, a validação runtime, o
+cálculo de recorrência e fuso horário, as regras de elegibilidade, a construção
+das mensagens e o serviço de agendamento:
+
+```text
+components/features/notifications/ui/ + widget/
+                         ↓
+components/features/notifications/hooks/
+                         ↓
+lib/notifications/notification-scheduler.service.ts
+                         ↓
+lib/db/repositories/notification-schedule.repository.ts
+                         ↓
+IndexedDB
+```
+
+Na orquestração da feature, os hooks realizam o CRUD no repositório e chamam o
+scheduler para rearmar ou recarregar os lembretes. O scheduler recebe o
+repositório e o serviço de notificações como dependências e delega a exibição
+para `lib/browser/services/notification.service.ts`.
+
+`lib/notifications/` não importa módulos de `components/` nem de `app/`. A
+fronteira do domínio permanece independente da árvore de rotas e da UI; a
+integração com React acontece nos hooks e widgets da feature.
+
+## 37.2 Persistência
+
+O esquema Dexie atual é a versão `7` (`lib/db/database.ts`) e declara dois stores
+para notificações:
+
+| Store | Chave e índices | Responsabilidade |
+|---|---|---|
+| `notificationSchedules` | `id` (chave primária), `userId`, `[userId+updatedAt]`, `[userId+period]` | Lembretes, recorrência, fuso horário e `lastOccurrenceKey` |
+| `notificationPreferences` | `userId` (chave primária), `updatedAt` | Preferências por usuário |
+
+Cada `NotificationSchedule` contém `userId`; as operações de leitura, alteração
+e exclusão do repositório recebem o usuário e permanecem escopadas a esse `userId`.
+As preferências são identificadas pelo próprio `userId`.
+
+Entre as configurações, o store persiste `enabled`, `quietHours` e `timeZone`,
+além dos campos de identificação e timestamps. A permissão do navegador não é
+persistida no IndexedDB: `Notification.permission` é consultado em runtime pelo
+serviço de notificações. O serviço legado em `lib/browser/reminders/`
+(`reminder.service.ts`) ainda existe, mas não é importado pela UI atual; a tela
+de configurações usa o novo repositório e os hooks da feature. A limpeza de dados
+chama `clearReminders()` separadamente, pois `localStorage` não participa da
+transação Dexie.
+
+A remoção dos dois stores está descrita na seção 36.7 e ocorre na mesma
+transação usada pelo restante dos dados do usuário.
+
+## 37.3 Runtime de notificações
+
+`NotificationRuntime` é um Client Component isolado, pois coordena IndexedDB,
+`setTimeout` e APIs do navegador. Ele é montado no `AppShell`
+(`components/layout/app-shell.tsx`), dentro do layout autenticado da aplicação.
+Componente e efeito:
+
+- iniciam `scheduler.start(userId)` quando há um usuário autenticado;
+- recarregam os lembretes quando `document.visibilityState` volta a `visible`;
+- removem o listener e chamam `scheduler.stop()` na limpeza do efeito.
+
+O efeito depende de `userId`: a entrada do usuário após login ou restauração de
+sessão inicia o runtime, e a remoção do usuário no logout ou a desmontagem do
+shell o interrompe. O scheduler limpa seu timer, fecha notificações abertas e
+esvazia o estado quando `stop()` é executado.
+
+## 37.4 Estratégia do scheduler e limitação de entrega
+
+O scheduler não faz polling. Para cada usuário, ele:
+
+- carrega os lembretes habilitados e as preferências;
+- calcula a próxima ocorrência de cada lembrete usando fuso horário e dias da
+  semana;
+- ignora ocorrências dentro do período silencioso;
+- mantém um único `setTimeout` para a ocorrência mais próxima e rearma o timer
+  após a execução ou uma alteração de configuração;
+- aceita a recuperação de timers atrasados em uma janela de 15 minutos;
+- usa `lastOccurrenceKey` para não repetir a mesma ocorrência.
+
+A exibição só é tentada quando `Notification.permission` está `granted`. O
+serviço prefere `ServiceWorkerRegistration.showNotification()` e usa
+`new Notification()` como fallback quando não há registro do Service Worker.
+
+A entrega não é garantida com o app fechado. O fluxo implementado não assina Push
+Manager, não usa Notification Triggers e não usa Periodic Background Sync.
+Notification Triggers foram descontinuados, Periodic Background Sync ainda é
+experimental e Push exigiria um servidor. A detecção de capability expõe apenas o
+que a interface consome: `supported`, `secureContext`, `serviceWorker` e
+`scheduling.reliableBackgroundDelivery`. Essa última é sempre `false` e está
+modelada como capability explícita para que a tela de configurações declara a
+limitação em vez de assumir que ela existe. O agendamento efetivo continua no
+foreground, com `setTimeout` e recarga quando a aba volta a ficar visível.
+
+Por essa limitação, `NotificationCapabilityNotice` exibe na tela de configurações
+o aviso **“Lembretes dependem do app aberto”** e informa que os horários ficam
+salvos no dispositivo, mas os avisos são exibidos enquanto o DiaBem estiver
+aberto.
