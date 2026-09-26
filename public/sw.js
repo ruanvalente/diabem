@@ -1,19 +1,22 @@
 /**
  * DiaBem Service Worker
  *
- * Responsibilities (restricted to application resources and cache strategy):
+ * Responsibilities (restricted to application resources, cache strategy and
+ * notification routing):
  * - precache static assets for offline availability
  * - cache-first for static assets (JS, CSS, fonts, icons)
  * - network-first for navigation with cached fallback
  * - versioned caches and cleanup of stale caches
+ * - route a clicked notification to an existing tab or a DiaBem route
  *
  * This worker MUST NOT contain business logic and MUST NOT know anything about
  * health data (glucose, meals, activities, notes, insights, users).
  *
  * User data lives exclusively in IndexedDB (encrypted), never in Cache Storage.
+ * Notification payloads carry only static copy and a DiaBem route.
  */
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const STATIC_CACHE = `diabem-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `diabem-runtime-${CACHE_VERSION}`;
 
@@ -25,6 +28,30 @@ const PRECACHE_URLS = [
   "/icons/icon-maskable-192.png",
   "/icons/icon-maskable-512.png",
 ];
+
+const NOTIFICATION_ROUTES = [
+  "/dashboard",
+  "/timeline",
+  "/glucose",
+  "/meals",
+  "/activity",
+  "/notes",
+  "/medications",
+  "/statistics",
+  "/reports",
+  "/settings",
+];
+
+function resolveNotificationUrl(candidate) {
+  if (typeof candidate !== "string" || !candidate.startsWith("/")) {
+    return "/dashboard";
+  }
+  const pathname = candidate.split("?")[0].split("#")[0];
+  const allowed = NOTIFICATION_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
+  return allowed ? pathname : "/dashboard";
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -131,4 +158,30 @@ self.addEventListener("fetch", (event) => {
       })
     );
   }
+});
+
+// Focus an already-open DiaBem tab when possible, so a clicked reminder does not
+// create a second session (the session key is memory-only by design).
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = resolveNotificationUrl(event.notification.data && event.notification.data.url);
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (client.url && new URL(client.url).origin === self.location.origin) {
+            return client.focus().then((focused) => {
+              if (focused && "navigate" in focused) {
+                return focused.navigate(target).catch(() => undefined);
+              }
+              return undefined;
+            });
+          }
+        }
+        return self.clients.openWindow(target);
+      })
+      .catch(() => self.clients.openWindow("/dashboard"))
+  );
 });

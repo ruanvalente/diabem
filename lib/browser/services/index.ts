@@ -2,14 +2,13 @@ export {
   notificationService,
 } from "./notification.service";
 export type {
-  NotificationServiceInstance,
+  NotifyResult,
+  NotificationFailureReason,
+  NotificationPayload,
+  NotificationTransport,
   RequestPermissionResult,
-} from "./notification.service";
-export type {
-  DialNotificationOptions,
-  NotificationErrorReason,
-  NotificationPermissionState,
 } from "./notification.types";
+export type { NotificationPermissionState } from "../capabilities/notifications";
 
 export {
   speechRecognitionService,

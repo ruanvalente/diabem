@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { User, Ruler, Shield, ChevronRight, Smartphone } from "lucide-react";
 import { DataOwnershipSection } from "@/components/features/data-ownership/widget/data-ownership-section.widget";
-import { NotificationSettingsCard } from "@/components/features/notifications/widget/notification-settings.card";
+import { NotificationSettingsCard } from "@/components/features/notifications/widget/notification-settings.widget";
 import { DeviceIntegrationSection } from "@/components/features/devices/widget/device-integration-section.widget";
 import { useAuth } from "@/lib/auth/use-auth";
 

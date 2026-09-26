@@ -7,6 +7,7 @@ import { UpdateBanner } from "./update-banner";
 import { InstallPrompt } from "./install-prompt";
 import { LocalDataIndicator } from "./local-data-indicator";
 import { StorageWarning } from "./storage-warning";
+import { NotificationRuntime } from "@/components/features/notifications/widget/notification-runtime.widget";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -25,6 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <UpdateBanner />
       <InstallPrompt />
       <StorageWarning />
+      <NotificationRuntime />
     </div>
   );
 }
