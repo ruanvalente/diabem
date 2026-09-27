@@ -10,6 +10,7 @@
 
 import { notificationScheduleRepository } from "../db/repositories/notification-schedule.repository";
 import { notificationService } from "../browser/services/notification.service";
+import { deliveredNotificationLog } from "./delivered-notification-log";
 import {
   buildNotificationBody,
   buildNotificationTag,
@@ -52,6 +53,7 @@ export type NotificationSchedulerDependencies = {
   rule?: NotificationRule;
   now?: () => Date;
   onError?: (error: unknown) => void;
+  onDelivered?: (userId: string) => void;
 };
 
 export interface NotificationScheduler {
@@ -273,6 +275,11 @@ export class LocalNotificationScheduler implements NotificationScheduler {
     if (!this.userId) return;
     if (this.deps.notifications.getPermission() !== "granted") return;
 
+    // Captured before the awaits below: `stop()` and a `start()` for another
+    // user can land while the browser call is in flight, and the delivery must
+    // still be attributed to the user it was scheduled for.
+    const deliveringUserId = this.userId;
+
     const occurrenceKey = getOccurrenceKey(schedule.id, occurrence);
     if (schedule.lastOccurrenceKey === occurrenceKey) return;
 
@@ -280,7 +287,7 @@ export class LocalNotificationScheduler implements NotificationScheduler {
       now,
       occurrence,
       schedule,
-      userId: this.userId,
+      userId: deliveringUserId,
     });
     if (!shouldNotify) return;
 
@@ -291,6 +298,11 @@ export class LocalNotificationScheduler implements NotificationScheduler {
       url: resolveNotificationRoute(schedule),
       icon: "/icons/icon-192.png",
     });
+
+    // Recorded before persisting the occurrence: the notification reached the
+    // user even if `markOccurrence` later fails, and a failed delivery must
+    // never be counted as presented.
+    if (result.ok) this.deps.onDelivered?.(deliveringUserId);
 
     await this.deps.repository.markOccurrence(this.userId, schedule.id, occurrenceKey);
     this.schedules = this.schedules.map((item) =>
@@ -311,6 +323,7 @@ export function getNotificationScheduler(): LocalNotificationScheduler {
     schedulerInstance = new LocalNotificationScheduler({
       repository: notificationScheduleRepository,
       notifications: notificationService,
+      onDelivered: (userId) => deliveredNotificationLog.recordFor(userId),
     });
   }
   return schedulerInstance;

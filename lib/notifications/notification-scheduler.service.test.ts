@@ -176,6 +176,100 @@ describe("LocalNotificationScheduler", () => {
     );
   });
 
+  it("reports a delivery once the notification was presented", async () => {
+    const onDelivered = vi.fn();
+    scheduler = new LocalNotificationScheduler({
+      repository,
+      notifications,
+      rule,
+      now: () => current,
+      onDelivered,
+    });
+    getEnabledSchedules.mockResolvedValue([createSchedule()]);
+    await scheduler.start("user-1");
+
+    await fireNextTimer(new Date("2026-01-05T08:00:00.000Z"));
+
+    expect(onDelivered).toHaveBeenCalledWith("user-1");
+  });
+
+  it("does not report a delivery when the notification was not presented", async () => {
+    const onDelivered = vi.fn();
+    show.mockResolvedValue({
+      ok: false,
+      reason: "show-failed",
+      fallback: true,
+    });
+    scheduler = new LocalNotificationScheduler({
+      repository,
+      notifications,
+      rule,
+      now: () => current,
+      onDelivered,
+    });
+    getEnabledSchedules.mockResolvedValue([createSchedule()]);
+    await scheduler.start("user-1");
+
+    await fireNextTimer(new Date("2026-01-05T08:00:00.000Z"));
+
+    expect(show).toHaveBeenCalledTimes(1);
+    expect(onDelivered).not.toHaveBeenCalled();
+  });
+
+  it("reports a delivery that reached the user even if recording it fails", async () => {
+    const onDelivered = vi.fn();
+    markOccurrence.mockRejectedValue(new Error("storage unavailable"));
+    scheduler = new LocalNotificationScheduler({
+      repository,
+      notifications,
+      rule,
+      now: () => current,
+      onDelivered,
+    });
+    getEnabledSchedules.mockResolvedValue([createSchedule()]);
+    await scheduler.start("user-1");
+
+    await fireNextTimer(new Date("2026-01-05T08:00:00.000Z"));
+
+    expect(onDelivered).toHaveBeenCalledWith("user-1");
+  });
+
+  it("attributes a delivery that resolves after the user changed to the original user", async () => {
+    let openGate: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      openGate = resolve;
+    });
+    show.mockImplementation(async () => {
+      await gate;
+      return { ok: true, transport: "constructor" } satisfies NotifyResult;
+    });
+    const onDelivered = vi.fn();
+    scheduler = new LocalNotificationScheduler({
+      repository,
+      notifications,
+      rule,
+      now: () => current,
+      onDelivered,
+    });
+    getEnabledSchedules.mockResolvedValue([createSchedule()]);
+    await scheduler.start("user-1");
+
+    await fireNextTimer(new Date("2026-01-05T08:00:00.000Z"));
+    expect(show).toHaveBeenCalledTimes(1);
+    expect(onDelivered).not.toHaveBeenCalled();
+
+    // The user signs out and another one signs in while the browser call is
+    // still in flight.
+    await scheduler.stop();
+    await scheduler.start("user-2");
+
+    openGate?.();
+    await flushMicrotasks();
+
+    expect(onDelivered).toHaveBeenCalledWith("user-1");
+    expect(onDelivered).not.toHaveBeenCalledWith("user-2");
+  });
+
   it("does not deliver an already recorded occurrence again", async () => {
     getEnabledSchedules.mockResolvedValue([
       createSchedule({
