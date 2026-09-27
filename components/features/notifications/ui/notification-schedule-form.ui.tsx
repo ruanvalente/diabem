@@ -4,7 +4,6 @@ import {
   NOTIFICATION_REMINDER_TYPES,
   NOTIFICATION_REMINDER_TYPE_LABELS,
   NOTIFICATION_WEEKDAY_KEYS,
-  NOTIFICATION_WEEKDAY_PRESETS,
   NOTIFICATION_WEEKDAY_PRESET_LABELS,
   NOTIFICATION_WEEKDAY_SHORT_LABELS,
   type NotificationPeriod,
@@ -39,31 +38,10 @@ type NotificationScheduleFormProps = {
   idPrefix?: string;
 };
 
-function matchesPreset(
-  days: readonly NotificationWeekdayKey[],
-  preset: NotificationWeekdayPreset,
-): boolean {
-  if (preset === "custom") return false;
-  const expected = NOTIFICATION_WEEKDAY_PRESETS[preset];
-  return (
-    days.length === expected.length && expected.every((day) => days.includes(day))
-  );
-}
-
 function toggleValue<T extends string>(values: readonly T[], value: T): T[] {
   return values.includes(value)
     ? values.filter((item) => item !== value)
     : [...values, value];
-}
-
-export function resolveWeekdayPreset(
-  days: readonly NotificationWeekdayKey[],
-): NotificationWeekdayPreset {
-  const preset = (Object.keys(NOTIFICATION_WEEKDAY_PRESETS) as Exclude<
-    NotificationWeekdayPreset,
-    "custom"
-  >[]).find((candidate) => matchesPreset(days, candidate));
-  return preset ?? "custom";
 }
 
 export function NotificationScheduleForm({
