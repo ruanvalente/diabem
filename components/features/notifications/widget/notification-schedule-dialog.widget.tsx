@@ -18,14 +18,13 @@ import {
   type NotificationActionResult,
   type NotificationSchedule,
   type NotificationScheduleInput,
-  type NotificationWeekdayKey,
   type NotificationWeekdayPreset,
 } from "@/lib/notifications/types";
 import {
   NotificationScheduleForm,
-  resolveWeekdayPreset,
   type NotificationScheduleFormValue,
 } from "../ui/notification-schedule-form.ui";
+import { resolveWeekdayPreset } from "../utils/notification-weekday-preset";
 
 type NotificationScheduleDialogProps = {
   open: boolean;
@@ -90,12 +89,7 @@ export function NotificationScheduleDialog({
 
   const handleSubmit = async () => {
     const validation = validateNotificationScheduleInput({
-      label: value.label,
-      period: value.period,
-      time: value.time,
-      enabled: value.enabled,
-      daysOfWeek: value.daysOfWeek as NotificationWeekdayKey[],
-      reminderTypes: value.reminderTypes,
+      ...value,
       timeZone,
     });
 

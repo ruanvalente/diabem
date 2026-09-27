@@ -3,11 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 
-import {
-  NotificationScheduleForm,
-  resolveWeekdayPreset,
-  type NotificationScheduleFormValue,
-} from "./notification-schedule-form.ui";
+import { NotificationScheduleForm, type NotificationScheduleFormValue } from "./notification-schedule-form.ui";
 import type { NotificationWeekdayPreset } from "@/lib/notifications/types";
 
 function value(
@@ -40,19 +36,6 @@ function renderForm(
     />,
   );
 }
-
-describe("resolveWeekdayPreset", () => {
-  it("recognizes the supported presets", () => {
-    expect(resolveWeekdayPreset(["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"])).toBe("everyDay");
-    expect(resolveWeekdayPreset(["monday", "tuesday", "wednesday", "thursday", "friday"])).toBe("weekdays");
-    expect(resolveWeekdayPreset(["saturday", "sunday"])).toBe("weekend");
-  });
-
-  it("falls back to a custom recurrence", () => {
-    expect(resolveWeekdayPreset(["monday", "friday"])).toBe("custom");
-    expect(resolveWeekdayPreset([])).toBe("custom");
-  });
-});
 
 describe("NotificationScheduleForm", () => {
   beforeEach(() => {

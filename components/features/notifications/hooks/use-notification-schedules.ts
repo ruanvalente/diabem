@@ -21,8 +21,31 @@ const EMPTY_STATE: NotificationSchedulesState = {
   error: null,
 };
 
+const NO_SESSION_ERROR = "Sessão inválida.";
+const NOT_FOUND_ERROR = "Lembrete não encontrado.";
+
 function sortByTime(schedules: NotificationSchedule[]): NotificationSchedule[] {
   return [...schedules].sort((a, b) => a.time.localeCompare(b.time));
+}
+
+/**
+ * Applies a local change to the loaded list. Records loaded for another session
+ * are discarded so a mutation can never surface another user's reminders.
+ */
+function applySchedules(
+  current: NotificationSchedulesState,
+  userId: string,
+  change: (schedules: NotificationSchedule[]) => NotificationSchedule[],
+): NotificationSchedulesState {
+  return {
+    userId,
+    error: null,
+    schedules: change(current.userId === userId ? current.schedules : []),
+  };
+}
+
+function messageFromCause(cause: unknown, fallback: string): string {
+  return cause instanceof Error ? cause.message : fallback;
 }
 
 export function useNotificationSchedules(userId: string | null) {
@@ -38,7 +61,11 @@ export function useNotificationSchedules(userId: string | null) {
       setLoaded({ userId, schedules, error: null });
     } catch {
       if (requestId !== requestSeqRef.current) return;
-      setLoaded({ userId, schedules: [], error: "Não foi possível carregar os lembretes." });
+      setLoaded({
+        userId,
+        schedules: [],
+        error: "Não foi possível carregar os lembretes.",
+      });
     }
   }, [userId]);
 
@@ -56,23 +83,23 @@ export function useNotificationSchedules(userId: string | null) {
     async (
       input: NotificationScheduleInput,
     ): Promise<NotificationActionResult<NotificationSchedule>> => {
-      if (!userId) return { ok: false, error: "Sessão inválida." };
+      if (!userId) return { ok: false, error: NO_SESSION_ERROR };
       try {
-        const record = await notificationScheduleRepository.create(userId, input);
-        setLoaded((current) => ({
+        const record = await notificationScheduleRepository.create(
           userId,
-          error: null,
-          schedules: sortByTime([
-            ...(current.userId === userId ? current.schedules : []),
-            record,
-          ]),
-        }));
+          input,
+        );
+        setLoaded((current) =>
+          applySchedules(current, userId, (schedules) =>
+            sortByTime([...schedules, record]),
+          ),
+        );
         await getNotificationScheduler().schedule(record);
         return { ok: true, data: record };
       } catch (cause) {
         return {
           ok: false,
-          error: cause instanceof Error ? cause.message : "Não foi possível salvar o lembrete.",
+          error: messageFromCause(cause, "Não foi possível salvar o lembrete."),
         };
       }
     },
@@ -84,25 +111,30 @@ export function useNotificationSchedules(userId: string | null) {
       id: string,
       input: Partial<NotificationScheduleInput>,
     ): Promise<NotificationActionResult<NotificationSchedule>> => {
-      if (!userId) return { ok: false, error: "Sessão inválida." };
+      if (!userId) return { ok: false, error: NO_SESSION_ERROR };
       try {
-        const record = await notificationScheduleRepository.update(userId, id, input);
-        if (!record) return { ok: false, error: "Lembrete não encontrado." };
-        setLoaded((current) => ({
+        const record = await notificationScheduleRepository.update(
           userId,
-          error: null,
-          schedules: sortByTime(
-            (current.userId === userId ? current.schedules : []).map((item) =>
-              item.id === id ? record : item,
+          id,
+          input,
+        );
+        if (!record) return { ok: false, error: NOT_FOUND_ERROR };
+        setLoaded((current) =>
+          applySchedules(current, userId, (schedules) =>
+            sortByTime(
+              schedules.map((item) => (item.id === id ? record : item)),
             ),
           ),
-        }));
+        );
         await getNotificationScheduler().schedule(record);
         return { ok: true, data: record };
       } catch (cause) {
         return {
           ok: false,
-          error: cause instanceof Error ? cause.message : "Não foi possível atualizar o lembrete.",
+          error: messageFromCause(
+            cause,
+            "Não foi possível atualizar o lembrete.",
+          ),
         };
       }
     },
@@ -110,18 +142,23 @@ export function useNotificationSchedules(userId: string | null) {
   );
 
   const setEnabled = useCallback(
-    async (id: string, enabled: boolean): Promise<NotificationActionResult<NotificationSchedule>> => {
-      if (!userId) return { ok: false, error: "Sessão inválida." };
+    async (
+      id: string,
+      enabled: boolean,
+    ): Promise<NotificationActionResult<NotificationSchedule>> => {
+      if (!userId) return { ok: false, error: NO_SESSION_ERROR };
       try {
-        const record = await notificationScheduleRepository.setEnabled(userId, id, enabled);
-        if (!record) return { ok: false, error: "Lembrete não encontrado." };
-        setLoaded((current) => ({
+        const record = await notificationScheduleRepository.setEnabled(
           userId,
-          error: null,
-          schedules: (current.userId === userId ? current.schedules : []).map((item) =>
-            item.id === id ? record : item,
+          id,
+          enabled,
+        );
+        if (!record) return { ok: false, error: NOT_FOUND_ERROR };
+        setLoaded((current) =>
+          applySchedules(current, userId, (schedules) =>
+            schedules.map((item) => (item.id === id ? record : item)),
           ),
-        }));
+        );
         await getNotificationScheduler().schedule(record);
         return { ok: true, data: record };
       } catch {
@@ -133,17 +170,18 @@ export function useNotificationSchedules(userId: string | null) {
 
   const remove = useCallback(
     async (id: string): Promise<NotificationActionResult<null>> => {
-      if (!userId) return { ok: false, error: "Sessão inválida." };
+      if (!userId) return { ok: false, error: NO_SESSION_ERROR };
       try {
-        const removed = await notificationScheduleRepository.deleteById(userId, id);
-        if (!removed) return { ok: false, error: "Lembrete não encontrado." };
-        setLoaded((current) => ({
+        const removed = await notificationScheduleRepository.deleteById(
           userId,
-          error: null,
-          schedules: (current.userId === userId ? current.schedules : []).filter(
-            (item) => item.id !== id,
+          id,
+        );
+        if (!removed) return { ok: false, error: NOT_FOUND_ERROR };
+        setLoaded((current) =>
+          applySchedules(current, userId, (schedules) =>
+            schedules.filter((item) => item.id !== id),
           ),
-        }));
+        );
         await getNotificationScheduler().cancel(id);
         return { ok: true, data: null };
       } catch {
@@ -153,5 +191,14 @@ export function useNotificationSchedules(userId: string | null) {
     [userId],
   );
 
-  return { schedules, isLoading, error, create, update, setEnabled, remove, refresh };
+  return {
+    schedules,
+    isLoading,
+    error,
+    create,
+    update,
+    setEnabled,
+    remove,
+    refresh,
+  };
 }

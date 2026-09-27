@@ -136,6 +136,7 @@ components/
         ├── ui/
         ├── widget/
         ├── hooks/
+        ├── utils/
         ├── services/
         ├── repositories/
         ├── actions/
@@ -1593,10 +1594,16 @@ components/features/notifications/hooks/
                          ↓
 lib/notifications/notification-scheduler.service.ts
                          ↓
+lib/notifications/delivered-notification-log.ts   (contador do header)
+                         ↓
 lib/db/repositories/notification-schedule.repository.ts
                          ↓
 IndexedDB
 ```
+
+O `delivered-notification-log` não participa da persistência: ele recebe a
+entrega pelo `onDelivered` do scheduler e é lido pelo header. Aparece no
+diagrama porque o header depende dele para renderizar, e não do repositório.
 
 Na orquestração da feature, os hooks realizam o CRUD no repositório e chamam o
 scheduler para rearmar ou recarregar os lembretes. O scheduler recebe o
@@ -1641,6 +1648,7 @@ transação usada pelo restante dos dados do usuário.
 Componente e efeito:
 
 - iniciam `scheduler.start(userId)` quando há um usuário autenticado;
+- anunciam a sessão de exibição em `deliveredNotificationLog.beginSession(userId)`;
 - recarregam os lembretes quando `document.visibilityState` volta a `visible`;
 - removem o listener e chamam `scheduler.stop()` na limpeza do efeito.
 
@@ -1680,3 +1688,49 @@ Por essa limitação, `NotificationCapabilityNotice` exibe na tela de configura�
 o aviso **“Lembretes dependem do app aberto”** e informa que os horários ficam
 salvos no dispositivo, mas os avisos são exibidos enquanto o DiaBem estiver
 aberto.
+
+## 37.5 Contador de notificações apresentadas no header
+
+O header da área autenticada exibe, no sino, quantas notificações foram
+apresentadas ao usuário durante a sessão atual. O sino é composto por
+`NotificationIndicator` (`components/features/notifications/widget/`), que
+consome `useDeliveredNotificationCount(userId)` e renderiza
+`NotificationBell` (`components/features/notifications/ui/`). O widget vive na
+feature de notificações; o `AppHeader` apenas o compõe, como já faz com
+`ConnectionStatus`.
+
+A origem do dado é `lib/notifications/delivered-notification-log.ts`, um store
+observável em memória com `subscribe`, `getCountFor(userId)`,
+`beginSession(userId)` e `recordFor(userId)`. O scheduler recebe a dependência
+opcional `onDelivered(userId)` e a chama em `deliver()` somente quando `show()`
+resolve com `ok: true`, isto é, quando a notificação foi mesmo apresentada. O
+singleton `getNotificationScheduler()` conecta essa dependência ao store. O
+registro acontece antes de `markOccurrence`, porque a notificação chegou ao
+usuário mesmo se a persistência da ocorrência falhar depois.
+
+Regras que o store precisa respeitar:
+
+- o contador é estado de sessão: começa em zero a cada
+  `beginSession(userId)` e zera ao recarregar a página;
+- a contagem é propriedade de um `userId`. `getCountFor` devolve zero para
+  qualquer outro usuário, inclusive antes de a nova sessão ser anunciada, porque
+  o `AuthProvider` vive no layout raiz e o módulo do store sobrevive à navegação
+  de logout e login;
+- a escrita é escopada pela mesma propriedade. `recordFor` descarta o registro
+  quando o usuário não é o dono da sessão, o que cobre duas janelas: uma
+  entrega que resolve depois que outro usuário entrou, e uma entrega registrada
+  antes de qualquer `beginSession`. `deliver()` captura o `userId` antes dos
+  `await` justamente para que a entrega continue sendo atribuída a quem
+  pertence;
+- nada é persistido e nenhum dado de saúde é armazenado. O centro de notificações
+  do navegador permanece a fonte da verdade das notificações em si;
+- a leitura no React usa `useSyncExternalStore`, com snapshot de servidor zero,
+  pois as entregas só acontecem no browser depois da hidratação.
+
+O badge representa *apresentações*, não lembretes distintos: se `markOccurrence`
+falhar, a ocorrência é reentregue e o contador pode passar do número de lembretes
+distintos. É intencional, porque a notificação exibida chegou ao usuário.
+
+Não existe inbox, estado de leitura ou histórico de entregas. A tela de
+notificações continua sendo a de configurações, acessada pelo sino em
+`/settings#notificacoes`.

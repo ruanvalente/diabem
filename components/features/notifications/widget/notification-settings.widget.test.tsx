@@ -187,6 +187,18 @@ describe("NotificationSettingsCard", () => {
     ).toBeDisabled();
   });
 
+  it("waits for the browser decision while the permission is being requested", () => {
+    permissionState.current = "requesting";
+    render(<NotificationSettingsCard />);
+
+    expect(
+      screen.getByText(/Aguardando permissão do navegador/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Ativar notificações/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("hides the capability notice when the platform has no support", () => {
     supported.current = false;
     permissionState.current = "unsupported";
@@ -293,6 +305,16 @@ describe("NotificationSettingsCard", () => {
     expect(save).toBeDisabled();
 
     fireEvent.click(screen.getByLabelText("Ativar lembretes"));
+
+    expect(save).toBeEnabled();
+  });
+
+  it("treats the silent window as part of the draft", () => {
+    render(<NotificationSettingsCard />);
+    const save = screen.getByRole("button", { name: /Salvar preferências/i });
+    expect(save).toBeDisabled();
+
+    fireEvent.click(screen.getByLabelText("Ativar período silencioso"));
 
     expect(save).toBeEnabled();
   });

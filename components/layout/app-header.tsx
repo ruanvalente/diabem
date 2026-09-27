@@ -13,8 +13,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth/use-auth";
 import { getInitials } from "@/lib/utils";
-import { Bell, LogOut, Menu } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { NotificationIndicator } from "@/components/features/notifications/widget/notification-indicator.widget";
 import { Sidebar } from "./sidebar";
 import { ConnectionStatus } from "./connection-status";
 
@@ -48,21 +49,10 @@ export function AppHeader() {
         </Sheet>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <ConnectionStatus />
 
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="relative"
-          aria-label="Notificações"
-        >
-          <Bell className="size-4" aria-hidden="true" />
-          <span
-            className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary"
-            aria-hidden="true"
-          />
-        </Button>
+        <NotificationIndicator />
 
         <DropdownMenu>
           <DropdownMenuTrigger
