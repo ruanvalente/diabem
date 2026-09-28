@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth/use-auth";
 import { useTimeline } from "@/lib/health/hooks/use-timeline";
-import { TimelineList } from "@/components/features/timeline/timeline-list";
+import { TimelineList } from "@/components/features/timeline/ui/timeline-list.ui";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
@@ -14,15 +14,32 @@ import type {
   TimelineFilter,
 } from "@/lib/health/types";
 import { History } from "lucide-react";
-import { TimelinePageHeader } from "../ui/timeline-page-header.ui";
+import {
+  TimelinePageHeader,
+  type TimelineTypeOption,
+} from "../ui/timeline-page-header.ui";
 
-const TYPE_OPTIONS: { value: TimelineEventType; label: string }[] = [
+const TYPE_OPTIONS: TimelineTypeOption[] = [
   { value: "glucose", label: TIMELINE_EVENT_LABELS.glucose },
   { value: "meal", label: TIMELINE_EVENT_LABELS.meal },
   { value: "activity", label: TIMELINE_EVENT_LABELS.activity },
   { value: "note", label: TIMELINE_EVENT_LABELS.note },
   { value: "medication", label: TIMELINE_EVENT_LABELS.medication },
 ];
+
+/**
+ * Composes the period range with the type filter. An empty selection means
+ * "every type", which the service expects as an absent `types` filter.
+ */
+function buildTimelineFilter(
+  range: Pick<TimelineFilter, "from" | "to">,
+  types: TimelineEventType[],
+): TimelineFilter {
+  return {
+    ...range,
+    types: types.length > 0 ? types : undefined,
+  };
+}
 
 export function TimelineWidget() {
   const { user } = useAuth();
@@ -39,25 +56,20 @@ export function TimelineWidget() {
     [selection],
   );
 
-  const timeline = useTimeline(userId, baseFilter);
-  const { records, isLoading, error, reload, applyFilters } = timeline;
-
-  const buildFilter = (
-    range: { from?: string; to?: string },
-    nextTypes: TimelineEventType[],
-  ): TimelineFilter => ({
-    ...range,
-    types: nextTypes.length > 0 ? nextTypes : undefined,
-  });
+  const { records, isLoading, error, reload, applyFilters } = useTimeline(
+    userId,
+    baseFilter,
+  );
 
   const handleSelectionChange = (next: PeriodSelection) => {
     setSelection(next);
-    void applyFilters(buildFilter(resolvePeriodSelectionRange(next), types));
+    const range = resolvePeriodSelectionRange(next);
+    void applyFilters(buildTimelineFilter(range, types));
   };
 
   const handleTypesChange = (next: TimelineEventType[]) => {
     setTypes(next);
-    void applyFilters(buildFilter(baseFilter, next));
+    void applyFilters(buildTimelineFilter(baseFilter, next));
   };
 
   const hasActiveFilters =
