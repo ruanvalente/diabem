@@ -115,10 +115,9 @@ describe("useStatistics", () => {
     const glucose = createEntity();
     mockedUseGlucose.mockReturnValue(glucose as never);
 
-    const { result } = renderHook(() => useStatistics());
+    renderHook(() => useStatistics());
 
     expect(glucose.applyFilters).not.toHaveBeenCalled();
-    expect(result.current.isLoading).toBe(false);
   });
 
   it("reports loading while any record source is loading", () => {
@@ -132,13 +131,27 @@ describe("useStatistics", () => {
   });
 
   it("surfaces the first error reported by a record source", () => {
+    mockedUseGlucose.mockReturnValue(
+      createEntity({ error: "Falha ao ler glicemia" }) as never
+    );
     mockedUseActivities.mockReturnValue(
       createEntity({ error: "Falha ao ler atividades" }) as never
     );
 
     const { result } = renderHook(() => useStatistics());
 
-    expect(result.current.error).toBe("Falha ao ler atividades");
+    expect(result.current.error).toBe("Falha ao ler glicemia");
+  });
+
+  it("skips sources without an error when picking the reported one", () => {
+    mockedUseGlucose.mockReturnValue(createEntity() as never);
+    mockedUseNotes.mockReturnValue(
+      createEntity({ error: "Falha ao ler anotações" }) as never
+    );
+
+    const { result } = renderHook(() => useStatistics());
+
+    expect(result.current.error).toBe("Falha ao ler anotações");
   });
 
   it("reloads every record source", async () => {

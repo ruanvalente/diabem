@@ -4,6 +4,7 @@ import type { ActivityStatistics } from "@/lib/analytics/statistics";
 import { VerticalBarChart } from "@/components/features/dashboard/charts/vertical-bar-chart";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatActivityDuration } from "@/lib/health/activity-display";
+import { DistributionRow } from "./distribution-row.ui";
 import { StatCard } from "./stat-card.ui";
 
 type ActivityTabProps = {
@@ -73,22 +74,16 @@ export function ActivityTab({ stats }: ActivityTabProps) {
           <CardContent>
             <div className="space-y-3">
               {stats.byType.map((item) => (
-                <div key={item.type}>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{item.label}</span>
-                    <span className="font-medium text-foreground">
-                      {item.count} {item.count === 1 ? "registro" : "registros"} · {formatActivityDuration(item.totalMinutes)}
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-warning transition-all"
-                      style={{
-                        width: `${stats.totalMinutes > 0 ? Math.round((item.totalMinutes / stats.totalMinutes) * 100) : 0}%`,
-                      }}
-                    />
-                  </div>
-                </div>
+                <DistributionRow
+                  key={item.type}
+                  label={item.label}
+                  count={item.totalMinutes}
+                  total={stats.totalMinutes}
+                  valueLabel={`${item.count} ${
+                    item.count === 1 ? "registro" : "registros"
+                  } · ${formatActivityDuration(item.totalMinutes)}`}
+                  barClassName="bg-warning"
+                />
               ))}
             </div>
           </CardContent>

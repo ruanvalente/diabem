@@ -58,6 +58,11 @@ export type UseStatisticsResult = {
  * left untouched instead of being reset, to avoid a `setState` inside an
  * effect: it is recovered automatically once the medication is selectable
  * again.
+ *
+ * The filter sync effect depends on each source's `applyFilters`, so those
+ * must stay referentially stable: `useEntityRecords` memoizes `reload` on
+ * `[userId, loader]` and the loaders are module-level imports. An unstable
+ * identity would re-run the effect on every render and loop the reads.
  */
 export function useStatistics(): UseStatisticsResult {
   const { user } = useAuth();
