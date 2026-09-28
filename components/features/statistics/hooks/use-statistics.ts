@@ -44,6 +44,26 @@ export type UseStatisticsResult = {
   reload: () => void;
 };
 
+/**
+ * Loads the health records of the selected period and derives the statistics
+ * rendered by the statistics tabs.
+ *
+ * Owns the period selection, the medication filter and the aggregation of the
+ * loading/error status across the five record sources. The resolved date range
+ * is recomputed on window focus and tab visibility changes, so relative
+ * periods stay current.
+ *
+ * When the selected medication no longer exists in the period, the exposed
+ * `medicationFilter` falls back to "all". The stored selection is intentionally
+ * left untouched instead of being reset, to avoid a `setState` inside an
+ * effect: it is recovered automatically once the medication is selectable
+ * again.
+ *
+ * The filter sync effect depends on each source's `applyFilters`, so those
+ * must stay referentially stable: `useEntityRecords` memoizes `reload` on
+ * `[userId, loader]` and the loaders are module-level imports. An unstable
+ * identity would re-run the effect on every render and loop the reads.
+ */
 export function useStatistics(): UseStatisticsResult {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -53,7 +73,7 @@ export function useStatistics(): UseStatisticsResult {
     custom: null,
   });
 
-  const [medicationFilter, setMedicationFilter] = useState<string>("all");
+  const [selectedMedication, setSelectedMedication] = useState<string>("all");
 
   const [range, setRange] = useState(() =>
     resolvePeriodSelectionRange(selection)
@@ -79,28 +99,33 @@ export function useStatistics(): UseStatisticsResult {
   const notes = useNotes(userId, range);
   const medications = useMedications(userId, range);
 
+  const entities = [glucose, meals, activities, notes, medications];
+
+  const glucoseFilters = glucose.applyFilters;
+  const mealsFilters = meals.applyFilters;
+  const activitiesFilters = activities.applyFilters;
+  const notesFilters = notes.applyFilters;
+  const medicationsFilters = medications.applyFilters;
+
   useEffect(() => {
     if (!userId) return;
-    void glucose.applyFilters(range);
-    void meals.applyFilters(range);
-    void activities.applyFilters(range);
-    void notes.applyFilters(range);
-    void medications.applyFilters(range);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial filter sync
-  }, [userId, range]);
+    void glucoseFilters(range);
+    void mealsFilters(range);
+    void activitiesFilters(range);
+    void notesFilters(range);
+    void medicationsFilters(range);
+  }, [
+    userId,
+    range,
+    glucoseFilters,
+    mealsFilters,
+    activitiesFilters,
+    notesFilters,
+    medicationsFilters,
+  ]);
 
-  const isLoading =
-    glucose.isLoading ||
-    meals.isLoading ||
-    activities.isLoading ||
-    notes.isLoading ||
-    medications.isLoading;
-  const error =
-    glucose.error ??
-    meals.error ??
-    activities.error ??
-    notes.error ??
-    medications.error;
+  const isLoading = entities.some((entity) => entity.isLoading);
+  const error = entities.find((entity) => entity.error)?.error ?? null;
 
   const medicationNames = useMemo(
     () =>
@@ -110,23 +135,19 @@ export function useStatistics(): UseStatisticsResult {
     [medications.records]
   );
 
-  // If the current filter no longer exists in the period, silently treat it as
-  // "all" without resetting the state (avoiding lint-prohibited setState inside
-  // an effect).
-  const effectiveFilter =
-    medicationFilter === "all" ||
-    medicationNames.includes(medicationFilter)
-      ? medicationFilter
+  const medicationFilter =
+    selectedMedication === "all" || medicationNames.includes(selectedMedication)
+      ? selectedMedication
       : "all";
 
   const medicationRecords = useMemo(
     () =>
-      effectiveFilter === "all"
+      medicationFilter === "all"
         ? medications.records
         : medications.records.filter(
-            (record) => record.name === effectiveFilter
+            (record) => record.name === medicationFilter
           ),
-    [medications.records, effectiveFilter]
+    [medications.records, medicationFilter]
   );
 
   const data = useMemo<StatisticsData>(
@@ -148,11 +169,7 @@ export function useStatistics(): UseStatisticsResult {
   );
 
   const reload = () => {
-    void glucose.reload();
-    void meals.reload();
-    void activities.reload();
-    void notes.reload();
-    void medications.reload();
+    for (const entity of entities) void entity.reload();
   };
 
   return {
@@ -161,8 +178,8 @@ export function useStatistics(): UseStatisticsResult {
     error,
     selection,
     setSelection,
-    medicationFilter: effectiveFilter,
-    setMedicationFilter,
+    medicationFilter,
+    setMedicationFilter: setSelectedMedication,
     medicationNames,
     reload,
   };

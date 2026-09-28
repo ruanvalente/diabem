@@ -4,6 +4,8 @@ import type { ActivityStatistics } from "@/lib/analytics/statistics";
 import { VerticalBarChart } from "@/components/features/dashboard/charts/vertical-bar-chart";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatActivityDuration } from "@/lib/health/activity-display";
+import { DistributionRow } from "./distribution-row.ui";
+import { StatCard } from "./stat-card.ui";
 
 type ActivityTabProps = {
   stats: ActivityStatistics;
@@ -25,42 +27,24 @@ export function ActivityTab({ stats }: ActivityTabProps) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">
-              Minutos totais
-            </p>
-            <p className="text-2xl font-bold tracking-tight text-foreground">
-              {stats.totalMinutes}
-            </p>
-            <p className="text-xs text-muted-foreground">no período</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">
-              Atividades
-            </p>
-            <p className="text-2xl font-bold tracking-tight text-foreground">
-              {stats.totalCount}
-            </p>
-            <p className="text-xs text-muted-foreground">no período</p>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Minutos totais"
+          value={String(stats.totalMinutes)}
+          unit="no período"
+        />
+        <StatCard
+          label="Atividades"
+          value={String(stats.totalCount)}
+          unit="no período"
+        />
       </div>
 
       {stats.averageMinutesPerDay !== null && (
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">
-              Média diária
-            </p>
-            <p className="text-2xl font-bold tracking-tight text-foreground">
-              {formatActivityDuration(stats.averageMinutesPerDay)}
-            </p>
-            <p className="text-xs text-muted-foreground">por dia</p>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Média diária"
+          value={formatActivityDuration(stats.averageMinutesPerDay)}
+          unit="por dia"
+        />
       )}
 
       {stats.chartData.days.length > 0 && (
@@ -90,22 +74,16 @@ export function ActivityTab({ stats }: ActivityTabProps) {
           <CardContent>
             <div className="space-y-3">
               {stats.byType.map((item) => (
-                <div key={item.type}>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{item.label}</span>
-                    <span className="font-medium text-foreground">
-                      {item.count} {item.count === 1 ? "registro" : "registros"} · {formatActivityDuration(item.totalMinutes)}
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-warning transition-all"
-                      style={{
-                        width: `${stats.totalMinutes > 0 ? Math.round((item.totalMinutes / stats.totalMinutes) * 100) : 0}%`,
-                      }}
-                    />
-                  </div>
-                </div>
+                <DistributionRow
+                  key={item.type}
+                  label={item.label}
+                  count={item.totalMinutes}
+                  total={stats.totalMinutes}
+                  valueLabel={`${item.count} ${
+                    item.count === 1 ? "registro" : "registros"
+                  } · ${formatActivityDuration(item.totalMinutes)}`}
+                  barClassName="bg-warning"
+                />
               ))}
             </div>
           </CardContent>

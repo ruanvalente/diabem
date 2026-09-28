@@ -10,6 +10,7 @@ import type { GlucoseStatistics } from "@/lib/analytics/statistics";
 import { GlucoseLineChart } from "@/components/features/dashboard/charts/glucose-line-chart";
 import { DistributionChart } from "@/components/features/dashboard/charts/distribution-chart";
 import { DistributionRow } from "./distribution-row.ui";
+import { StatCard } from "./stat-card.ui";
 import { EmptyState } from "@/components/shared/empty-state";
 
 type GlucoseTabProps = {
@@ -190,27 +191,3 @@ export function GlucoseTab({ stats }: GlucoseTabProps) {
     </div>
   );
 }
-
-function StatCard({
-  label,
-  value,
-  unit,
-}: {
-  label: string;
-  value: string;
-  unit: string;
-}) {
-  return (
-    <Card className="border-border shadow-(--shadow-card)]">
-      <CardContent className="p-4">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <p className="text-2xl font-bold tracking-tight text-foreground">
-          {value}
-        </p>
-        <p className="text-xs text-muted-foreground">{unit}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-
