@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Pill } from "lucide-react";
+import { useMemo } from "react";
 import type { MedicationStatistics } from "@/lib/analytics/statistics";
 import { DistributionChart } from "@/components/features/dashboard/charts/distribution-chart";
 import { DistributionRow } from "./distribution-row.ui";
@@ -20,12 +21,28 @@ type MedicationsTabProps = {
   onFilterChange: (value: string) => void;
 };
 
+const ALL_MEDICATIONS = "all";
+const ALL_MEDICATIONS_LABEL = "Todos";
+
 export function MedicationsTab({
   stats,
   names,
   filter,
   onFilterChange,
 }: MedicationsTabProps) {
+  /**
+   * Declared before the early return below: a hook after a conditional return
+   * would break the rules of hooks. Memoised because `items` feeds a store, so
+   * a fresh array on every render would churn it.
+   */
+  const filterItems = useMemo(
+    () => [
+      { value: ALL_MEDICATIONS, label: ALL_MEDICATIONS_LABEL },
+      ...names.map((name) => ({ value: name, label: name })),
+    ],
+    [names],
+  );
+
   if (!stats.hasEnoughData) {
     return (
       <div className="space-y-4">
@@ -64,15 +81,18 @@ export function MedicationsTab({
               onValueChange={(value) => {
                 if (value) onFilterChange(value);
               }}
+              items={filterItems}
             >
               <SelectTrigger
                 aria-label="Filtrar por medicamento"
                 className="h-12 w-full sm:w-64"
               >
-                <SelectValue />
+                <SelectValue placeholder={ALL_MEDICATIONS_LABEL} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value={ALL_MEDICATIONS}>
+                  {ALL_MEDICATIONS_LABEL}
+                </SelectItem>
                 {names.map((name) => (
                   <SelectItem key={name} value={name}>
                     {name}

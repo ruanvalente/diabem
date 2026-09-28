@@ -2,14 +2,16 @@
 
 import { PageHeader } from "@/components/shared/page-header";
 import { PeriodRangeFilter } from "@/components/shared/period-range-filter";
-import { MultiOptionPills } from "@/components/shared/multi-option-pills";
+import { MultiOptionPills, type MultiOptionPill } from "@/components/shared/multi-option-pills";
 import type { PeriodSelection } from "@/lib/date";
 import type { TimelineEventType } from "@/lib/health/types";
+
+export type TimelineTypeOption = MultiOptionPill<TimelineEventType>;
 
 type TimelinePageHeaderProps = {
   selection: PeriodSelection;
   onSelectionChange: (selection: PeriodSelection) => void;
-  typeOptions: { value: TimelineEventType; label: string }[];
+  typeOptions: TimelineTypeOption[];
   selectedTypes: TimelineEventType[];
   onTypesChange: (types: TimelineEventType[]) => void;
 };

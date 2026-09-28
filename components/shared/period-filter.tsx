@@ -35,14 +35,18 @@ export function PeriodFilter({
       onValueChange={(next) => {
         if (next) onChange(next as PeriodFilterValue);
       }}
+      items={OPTIONS}
     >
       <SelectTrigger
         size="default"
         aria-label="Filtrar por período"
         className={cn("h-9 min-w-32", className)}
       >
-        <CalendarDays className="size-4 text-muted-foreground" aria-hidden="true" />
-        <SelectValue />
+        <CalendarDays
+          className="size-4 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <SelectValue placeholder="Selecione um período" />
       </SelectTrigger>
       <SelectContent align="end">
         {OPTIONS.map((option) => (

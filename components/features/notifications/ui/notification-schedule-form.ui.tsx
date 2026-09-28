@@ -38,6 +38,20 @@ type NotificationScheduleFormProps = {
   idPrefix?: string;
 };
 
+const PERIOD_ITEMS = NOTIFICATION_PERIODS.map((period) => ({
+  value: period,
+  label: NOTIFICATION_PERIOD_LABELS[period],
+}));
+
+const WEEKDAY_PRESETS = Object.keys(
+  NOTIFICATION_WEEKDAY_PRESET_LABELS,
+) as NotificationWeekdayPreset[];
+
+const WEEKDAY_PRESET_ITEMS = WEEKDAY_PRESETS.map((preset) => ({
+  value: preset,
+  label: NOTIFICATION_WEEKDAY_PRESET_LABELS[preset],
+}));
+
 function toggleValue<T extends string>(values: readonly T[], value: T): T[] {
   return values.includes(value)
     ? values.filter((item) => item !== value)
@@ -78,15 +92,10 @@ export function NotificationScheduleForm({
           onValueChange={(next) => {
             if (next) onChange({ ...value, period: next as NotificationPeriod });
           }}
+          items={PERIOD_ITEMS}
         >
           <SelectTrigger id={periodId} size="default" className="h-10 w-full">
-            <SelectValue>
-              {(selected: string | null) =>
-                selected
-                  ? NOTIFICATION_PERIOD_LABELS[selected as NotificationPeriod]
-                  : "Selecione um período"
-              }
-            </SelectValue>
+            <SelectValue placeholder="Selecione um período" />
           </SelectTrigger>
           <SelectContent>
             {NOTIFICATION_PERIODS.map((period) => (
@@ -115,22 +124,13 @@ export function NotificationScheduleForm({
           onValueChange={(next) => {
             if (next) onWeekdayPresetChange(next as NotificationWeekdayPreset);
           }}
+          items={WEEKDAY_PRESET_ITEMS}
         >
           <SelectTrigger id={repeatId} size="default" className="h-10 w-full">
-            <SelectValue>
-              {(selected: string | null) =>
-                selected
-                  ? NOTIFICATION_WEEKDAY_PRESET_LABELS[
-                      selected as NotificationWeekdayPreset
-                    ]
-                  : "Selecione uma repetição"
-              }
-            </SelectValue>
+            <SelectValue placeholder="Selecione uma repetição" />
           </SelectTrigger>
           <SelectContent>
-            {(
-              Object.keys(NOTIFICATION_WEEKDAY_PRESET_LABELS) as NotificationWeekdayPreset[]
-            ).map((preset) => (
+            {WEEKDAY_PRESETS.map((preset) => (
               <SelectItem key={preset} value={preset}>
                 {NOTIFICATION_WEEKDAY_PRESET_LABELS[preset]}
               </SelectItem>

@@ -4,7 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type MultiOptionPill<T extends string> = {
+export type MultiOptionPill<T extends string> = {
   value: T;
   label: string;
   icon?: LucideIcon;
