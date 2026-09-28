@@ -74,6 +74,7 @@ export function PeriodRangeFilter({
         onValueChange={(next) =>
           next && handleSelect(next as PeriodFilterWithCustom)
         }
+        items={OPTIONS}
       >
         <SelectTrigger
           size="default"
@@ -81,7 +82,7 @@ export function PeriodRangeFilter({
           className={cn("h-12 min-w-32", className)}
         >
           <CalendarDays className="size-4 text-muted-foreground" aria-hidden="true" />
-          <SelectValue />
+          <SelectValue placeholder="Selecione um período" />
         </SelectTrigger>
         <SelectContent align="end">
           {OPTIONS.map((option) => (

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 
+import { pickSelectOption } from "@/components/test-utils/select";
 import { NotificationScheduleForm, type NotificationScheduleFormValue } from "./notification-schedule-form.ui";
 import type { NotificationWeekdayPreset } from "@/lib/notifications/types";
 
@@ -100,9 +101,6 @@ describe("NotificationScheduleForm", () => {
   });
 
   it("exposes the current recurrence through the Repetir control", () => {
-    // The popup itself is a base-ui portalled list that needs real pointer
-    // events, so the selection flow is covered by the e2e suite. Here we only
-    // assert the trigger is labelled and wired to the current preset.
     const { rerender } = renderForm(value(), "everyDay");
 
     expect(screen.getByRole("combobox", { name: "Repetir" })).toHaveTextContent(
@@ -120,6 +118,33 @@ describe("NotificationScheduleForm", () => {
     expect(screen.getByRole("combobox", { name: "Repetir" })).toHaveTextContent(
       "Fim de semana",
     );
+  });
+
+  it("reports the period picked from the popup", () => {
+    const current = value();
+    renderForm(current);
+
+    pickSelectOption("Período", "Noite");
+
+    expect(onChange).toHaveBeenCalledWith({ ...current, period: "evening" });
+  });
+
+  it("reports the recurrence picked from the popup", () => {
+    renderForm(value(), "everyDay");
+
+    pickSelectOption("Repetir", "Dias úteis");
+
+    expect(onWeekdayPresetChange).toHaveBeenCalledWith("weekdays");
+  });
+
+  it("closes each popup after a selection", () => {
+    renderForm(value(), "everyDay");
+
+    pickSelectOption("Período", "Tarde");
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+
+    pickSelectOption("Repetir", "Personalizado");
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
   });
 
   it("toggles whether the reminder itself is active", () => {
