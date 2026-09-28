@@ -2,6 +2,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PeriodRangeFilter } from "@/components/shared/period-range-filter";
+import { PageHeader } from "@/components/shared/page-header";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { ErrorState } from "@/components/shared/error-state";
 import { GlucoseTab } from "../ui/glucose-tab.ui";
@@ -25,27 +26,17 @@ export function StatisticsWidget() {
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">
-            Estatísticas
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Visualize gráficos e indicadores da sua saúde
-          </p>
-        </div>
-        <PeriodRangeFilter value={selection} onChange={setSelection} />
-      </div>
+      <PageHeader
+        title="Estatísticas"
+        description="Visualize gráficos e indicadores da sua saúde"
+        action={<PeriodRangeFilter value={selection} onChange={setSelection} />}
+        className="gap-4"
+      />
 
       {isLoading ? (
         <ListSkeleton rows={3} />
       ) : error ? (
-        <ErrorState
-          message={error}
-          onRetry={() => {
-            reload();
-          }}
-        />
+        <ErrorState message={error} onRetry={reload} />
       ) : (
         <Tabs defaultValue="glucose" className="mb-6">
           <div className="w-full overflow-x-auto">

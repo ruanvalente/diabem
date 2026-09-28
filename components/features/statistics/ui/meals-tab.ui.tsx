@@ -3,6 +3,8 @@ import { Apple } from "lucide-react";
 import type { MealStatistics } from "@/lib/analytics/statistics";
 import { DistributionChart } from "@/components/features/dashboard/charts/distribution-chart";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DistributionRow } from "./distribution-row.ui";
+import { StatCard } from "./stat-card.ui";
 
 type MealsTabProps = {
   stats: MealStatistics;
@@ -24,31 +26,17 @@ export function MealsTab({ stats }: MealsTabProps) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">
-              Refeições
-            </p>
-            <p className="text-2xl font-bold tracking-tight text-foreground">
-              {stats.totalCount}
-            </p>
-            <p className="text-xs text-muted-foreground">no período</p>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Refeições"
+          value={String(stats.totalCount)}
+          unit="no período"
+        />
         {stats.byType.length > 0 && (
-          <Card className="border-border shadow-(--shadow-card)]">
-            <CardContent className="p-4">
-              <p className="text-xs font-medium text-muted-foreground">
-                Tipos registrados
-              </p>
-              <p className="text-2xl font-bold tracking-tight text-foreground">
-                {stats.byType.length}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {stats.byType.length === 1 ? "tipo" : "tipos"}
-              </p>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Tipos registrados"
+            value={String(stats.byType.length)}
+            unit={stats.byType.length === 1 ? "tipo" : "tipos"}
+          />
         )}
       </div>
 
@@ -62,22 +50,16 @@ export function MealsTab({ stats }: MealsTabProps) {
           <CardContent>
             <div className="space-y-3">
               {stats.byType.map((item) => (
-                <div key={item.type}>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{item.label}</span>
-                    <span className="font-medium text-foreground">
-                      {item.count} {item.count === 1 ? "refeição" : "refeições"}
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-success transition-all"
-                      style={{
-                        width: `${Math.round((item.count / stats.totalCount) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
+                <DistributionRow
+                  key={item.type}
+                  label={item.label}
+                  count={item.count}
+                  total={stats.totalCount}
+                  valueLabel={`${item.count} ${
+                    item.count === 1 ? "refeição" : "refeições"
+                  }`}
+                  barClassName="bg-success"
+                />
               ))}
             </div>
           </CardContent>

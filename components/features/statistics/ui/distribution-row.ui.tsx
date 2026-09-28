@@ -6,6 +6,13 @@ type DistributionRowProps = {
   barClassName?: string;
 };
 
+/**
+ * Single labelled bar of a distribution section, sized as `count / total`.
+ *
+ * The bar is exposed as a progressbar so the proportion is not conveyed by
+ * color alone. `valueLabel` replaces the default "{count} ({percentage}%)"
+ * text and `barClassName` recolors the bar.
+ */
 export function DistributionRow({
   label,
   count,

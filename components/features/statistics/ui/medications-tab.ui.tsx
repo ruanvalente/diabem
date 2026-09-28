@@ -10,6 +10,7 @@ import { Pill } from "lucide-react";
 import type { MedicationStatistics } from "@/lib/analytics/statistics";
 import { DistributionChart } from "@/components/features/dashboard/charts/distribution-chart";
 import { DistributionRow } from "./distribution-row.ui";
+import { StatCard } from "./stat-card.ui";
 import { EmptyState } from "@/components/shared/empty-state";
 
 type MedicationsTabProps = {
@@ -40,30 +41,16 @@ export function MedicationsTab({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">
-              Registros
-            </p>
-            <p className="text-2xl font-bold tracking-tight text-foreground">
-              {stats.totalCount}
-            </p>
-            <p className="text-xs text-muted-foreground">no período</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">
-              Medicamentos
-            </p>
-            <p className="text-2xl font-bold tracking-tight text-foreground">
-              {stats.distinctCount}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {stats.distinctCount === 1 ? "distinto" : "distintos"}
-            </p>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Registros"
+          value={String(stats.totalCount)}
+          unit="no período"
+        />
+        <StatCard
+          label="Medicamentos"
+          value={String(stats.distinctCount)}
+          unit={stats.distinctCount === 1 ? "distinto" : "distintos"}
+        />
       </div>
 
       {names.length > 0 && (

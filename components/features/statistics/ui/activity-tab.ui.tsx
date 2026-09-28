@@ -4,6 +4,7 @@ import type { ActivityStatistics } from "@/lib/analytics/statistics";
 import { VerticalBarChart } from "@/components/features/dashboard/charts/vertical-bar-chart";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatActivityDuration } from "@/lib/health/activity-display";
+import { StatCard } from "./stat-card.ui";
 
 type ActivityTabProps = {
   stats: ActivityStatistics;
@@ -25,42 +26,24 @@ export function ActivityTab({ stats }: ActivityTabProps) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">
-              Minutos totais
-            </p>
-            <p className="text-2xl font-bold tracking-tight text-foreground">
-              {stats.totalMinutes}
-            </p>
-            <p className="text-xs text-muted-foreground">no período</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">
-              Atividades
-            </p>
-            <p className="text-2xl font-bold tracking-tight text-foreground">
-              {stats.totalCount}
-            </p>
-            <p className="text-xs text-muted-foreground">no período</p>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Minutos totais"
+          value={String(stats.totalMinutes)}
+          unit="no período"
+        />
+        <StatCard
+          label="Atividades"
+          value={String(stats.totalCount)}
+          unit="no período"
+        />
       </div>
 
       {stats.averageMinutesPerDay !== null && (
-        <Card className="border-border shadow-(--shadow-card)]">
-          <CardContent className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">
-              Média diária
-            </p>
-            <p className="text-2xl font-bold tracking-tight text-foreground">
-              {formatActivityDuration(stats.averageMinutesPerDay)}
-            </p>
-            <p className="text-xs text-muted-foreground">por dia</p>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Média diária"
+          value={formatActivityDuration(stats.averageMinutesPerDay)}
+          unit="por dia"
+        />
       )}
 
       {stats.chartData.days.length > 0 && (
