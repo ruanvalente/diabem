@@ -82,6 +82,32 @@ describe("VoiceInputWidget", () => {
     expect(stop).toHaveBeenCalled();
   });
 
+  it("calls stop when processing button clicked", () => {
+    const stop = vi.fn();
+    const start = vi.fn();
+    mockUseSpeechRecognition.mockReturnValue(
+      createMockHookReturn({
+        state: "processing",
+        // The hook reports `isListening: false` here, and recognition must
+        // still be treated as capturing.
+        isListening: false,
+        stop,
+        start,
+      })
+    );
+
+    render(<VoiceInputWidget {...createMockProps()} />);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Gravando áudio, clique para parar",
+      })
+    );
+
+    expect(stop).toHaveBeenCalled();
+    expect(start).not.toHaveBeenCalled();
+  });
+
   it("calls onTranscript and reset when 'Usar texto' clicked", () => {
     const onTranscript = vi.fn();
     const reset = vi.fn();
@@ -146,6 +172,18 @@ describe("VoiceInputWidget", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Descartar texto reconhecido" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not render confirm/discard for a blank transcript", () => {
+    mockUseSpeechRecognition.mockReturnValue(
+      createMockHookReturn({ transcript: "   " })
+    );
+
+    render(<VoiceInputWidget {...createMockProps()} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Usar texto reconhecido" })
     ).not.toBeInTheDocument();
   });
 });
