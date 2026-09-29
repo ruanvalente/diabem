@@ -7,34 +7,25 @@ import { VoiceInputButton } from "./voice-input-button.ui";
 
 const BASE_PROPS = {
   state: "idle" as const,
-  isRecording: false,
-  hasTranscript: false,
-  hasError: false,
   transcript: "",
   label: "Gravar áudio",
-  onToggleRecording: vi.fn(),
-  onUseText: vi.fn(),
+  onToggle: vi.fn(),
+  onUseTranscript: vi.fn(),
   onDiscard: vi.fn(),
-  onRetry: vi.fn(),
 };
 
 describe("VoiceInputButton", () => {
   it("renders label when idle", () => {
-    render(<VoiceInputButton {...BASE_PROPS} />);
+    const { container } = render(<VoiceInputButton {...BASE_PROPS} />);
 
     const button = screen.getByRole("button", { name: "Gravar áudio" });
     expect(button).toBeInTheDocument();
     expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(container.querySelector(".animate-spin")).toBeNull();
   });
 
   it("renders recording label when recording", () => {
-    render(
-      <VoiceInputButton
-        {...BASE_PROPS}
-        state="listening"
-        isRecording
-      />
-    );
+    render(<VoiceInputButton {...BASE_PROPS} state="listening" />);
 
     const button = screen.getByRole("button", {
       name: "Gravando áudio, clique para parar",
@@ -45,37 +36,39 @@ describe("VoiceInputButton", () => {
   });
 
   it("shows status text when recording", () => {
-    render(
-      <VoiceInputButton
-        {...BASE_PROPS}
-        state="listening"
-        isRecording
-      />
-    );
+    render(<VoiceInputButton {...BASE_PROPS} state="listening" />);
 
     expect(
       screen.getByText("Ouvindo... Fale sua observação.")
     ).toBeInTheDocument();
   });
 
-  it("shows spinner when starting", () => {
-    render(
-      <VoiceInputButton {...BASE_PROPS} state="starting" isRecording />
+  it("shows starting label and spinner while starting", () => {
+    const { container } = render(
+      <VoiceInputButton {...BASE_PROPS} state="starting" />
     );
 
     expect(screen.getByText("Iniciando...")).toBeInTheDocument();
+    expect(container.querySelector(".animate-spin")).toBeInTheDocument();
+  });
+
+  it("shows processing label and spinner while processing", () => {
+    const { container } = render(
+      <VoiceInputButton {...BASE_PROPS} state="processing" />
+    );
+
+    expect(screen.getByText("Processando...")).toBeInTheDocument();
+    expect(container.querySelector(".animate-spin")).toBeInTheDocument();
   });
 
   it("shows transcript and action buttons when transcript available", () => {
     render(
-      <VoiceInputButton
-        {...BASE_PROPS}
-        hasTranscript
-        transcript="Minha observação"
-      />
+      <VoiceInputButton {...BASE_PROPS} transcript="Minha observação" />
     );
 
-    expect(screen.getByText(/Texto reconhecido/)).toBeInTheDocument();
+    expect(
+      screen.getByText('Texto reconhecido: "Minha observação"')
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Usar texto reconhecido" })
     ).toBeInTheDocument();
@@ -84,52 +77,90 @@ describe("VoiceInputButton", () => {
     ).toBeInTheDocument();
   });
 
+  it("hides the transcript while recording", () => {
+    render(
+      <VoiceInputButton
+        {...BASE_PROPS}
+        state="listening"
+        transcript="Minha observação"
+      />
+    );
+
+    expect(screen.queryByText(/Texto reconhecido/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Usar texto reconhecido" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides the transcript when it contains only whitespace", () => {
+    render(<VoiceInputButton {...BASE_PROPS} transcript="   " />);
+
+    expect(screen.queryByText(/Texto reconhecido/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Descartar texto reconhecido" })
+    ).not.toBeInTheDocument();
+  });
+
   it("shows error state", () => {
-    render(<VoiceInputButton {...BASE_PROPS} hasError />);
+    render(<VoiceInputButton {...BASE_PROPS} state="error" />);
 
     expect(
       screen.getByText("Não foi possível capturar áudio.")
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /erro ao gravar áudio/i })
-    ).toBeInTheDocument();
+    const button = screen.getByRole("button", {
+      name: /erro ao gravar áudio/i,
+    });
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("Tente novamente")).toBeInTheDocument();
   });
 
-  it("calls onToggleRecording when idle button clicked", () => {
-    const onToggleRecording = vi.fn();
-    render(
-      <VoiceInputButton
-        {...BASE_PROPS}
-        onToggleRecording={onToggleRecording}
-      />
-    );
+  it("calls onToggle when idle button clicked", () => {
+    const onToggle = vi.fn();
+    render(<VoiceInputButton {...BASE_PROPS} onToggle={onToggle} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Gravar áudio" }));
 
-    expect(onToggleRecording).toHaveBeenCalled();
+    expect(onToggle).toHaveBeenCalled();
   });
 
-  it("calls onRetry when error button clicked", () => {
-    const onRetry = vi.fn();
+  it("calls onToggle when recording button clicked", () => {
+    const onToggle = vi.fn();
     render(
-      <VoiceInputButton {...BASE_PROPS} hasError onRetry={onRetry} />
+      <VoiceInputButton
+        {...BASE_PROPS}
+        state="listening"
+        onToggle={onToggle}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /clique para parar/i })
+    );
+
+    expect(onToggle).toHaveBeenCalled();
+  });
+
+  it("calls onToggle when error button clicked", () => {
+    const onToggle = vi.fn();
+    render(
+      <VoiceInputButton {...BASE_PROPS} state="error" onToggle={onToggle} />
     );
 
     fireEvent.click(
       screen.getByRole("button", { name: /erro ao gravar áudio/i })
     );
 
-    expect(onRetry).toHaveBeenCalled();
+    expect(onToggle).toHaveBeenCalled();
   });
 
-  it("calls onUseText when 'Usar texto' clicked", () => {
-    const onUseText = vi.fn();
+  it("calls onUseTranscript when 'Usar texto' clicked", () => {
+    const onUseTranscript = vi.fn();
     render(
       <VoiceInputButton
         {...BASE_PROPS}
-        hasTranscript
         transcript="Minha observação"
-        onUseText={onUseText}
+        onUseTranscript={onUseTranscript}
       />
     );
 
@@ -137,7 +168,7 @@ describe("VoiceInputButton", () => {
       screen.getByRole("button", { name: "Usar texto reconhecido" })
     );
 
-    expect(onUseText).toHaveBeenCalled();
+    expect(onUseTranscript).toHaveBeenCalled();
   });
 
   it("calls onDiscard when 'Descartar' clicked", () => {
@@ -145,7 +176,6 @@ describe("VoiceInputButton", () => {
     render(
       <VoiceInputButton
         {...BASE_PROPS}
-        hasTranscript
         transcript="Minha observação"
         onDiscard={onDiscard}
       />
