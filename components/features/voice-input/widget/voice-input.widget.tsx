@@ -1,6 +1,7 @@
 "use client";
 
 import { useSpeechRecognition } from "@/lib/browser/hooks/use-speech-recognition";
+import { resolveVoiceInputActivity } from "../utils/voice-input-activity";
 import { VoiceInputButton } from "../ui/voice-input-button.ui";
 
 type VoiceInputWidgetProps = {
@@ -8,28 +9,36 @@ type VoiceInputWidgetProps = {
   label: string;
 };
 
+/**
+ * Orchestrates speech recognition for a notes field. It renders nothing when
+ * the browser has no recognition API, so its absence is deliberate rather than
+ * a loading state.
+ */
 export function VoiceInputWidget({
   onTranscript,
   label,
 }: VoiceInputWidgetProps) {
-  const { state, supported, transcript, isListening, start, stop, reset } =
+  const { state, supported, transcript, start, stop, reset } =
     useSpeechRecognition();
 
   if (!supported) return null;
 
-  const isRecording = isListening || state === "processing";
-  const hasTranscript = transcript.trim() !== "" && !isRecording;
-  const hasError = state === "error";
+  const handleToggle = () => {
+    const activity = resolveVoiceInputActivity(state);
 
-  const handleToggleRecording = () => {
-    if (isRecording) {
-      stop();
-    } else {
+    if (activity === "error") {
+      reset();
       start();
+      return;
     }
+    if (activity === "recording") {
+      stop();
+      return;
+    }
+    start();
   };
 
-  const handleUseText = () => {
+  const handleUseTranscript = () => {
     onTranscript(transcript);
     reset();
   };
@@ -38,23 +47,14 @@ export function VoiceInputWidget({
     reset();
   };
 
-  const handleRetry = () => {
-    reset();
-    start();
-  };
-
   return (
     <VoiceInputButton
       state={state}
-      isRecording={isRecording}
-      hasTranscript={hasTranscript}
-      hasError={hasError}
       transcript={transcript}
       label={label}
-      onToggleRecording={handleToggleRecording}
-      onUseText={handleUseText}
+      onToggle={handleToggle}
+      onUseTranscript={handleUseTranscript}
       onDiscard={handleDiscard}
-      onRetry={handleRetry}
     />
   );
 }
