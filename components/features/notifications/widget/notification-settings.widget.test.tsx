@@ -264,6 +264,29 @@ describe("NotificationSettingsCard", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
+  it("opens the edit dialog and updates the reminder being edited", async () => {
+    schedulesState.schedules = [schedule({ id: "sched-2", label: "Medição da tarde" })];
+    render(<NotificationSettingsCard />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Editar/i }));
+    expect(screen.getByText("edit")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "enviar" }));
+
+    await waitFor(() =>
+      expect(schedulesState.update).toHaveBeenCalledWith(
+        "sched-2",
+        expect.objectContaining({ label: "Novo" }),
+      ),
+    );
+    expect(schedulesState.create).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(addToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Lembrete atualizado com sucesso." }),
+      ),
+    );
+  });
+
   it("delegates toggling and removal of a reminder to the hooks", async () => {
     const record = schedule();
     schedulesState.schedules = [record];

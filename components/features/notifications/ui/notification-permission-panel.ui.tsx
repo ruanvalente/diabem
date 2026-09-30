@@ -13,11 +13,41 @@ const PERMISSION_MESSAGES: Partial<Record<PermissionState, string>> = {
   unsupported: "Seu navegador não suporta notificações neste ambiente.",
 };
 
+type BlockedCopy = {
+  title: string;
+  body: string;
+};
+
+/**
+ * The keys are exactly the states the browser cannot recover on its own, so the
+ * map itself is the rule: a state without an entry is not blocked and the panel
+ * offers the action that resolves it.
+ */
+const BLOCKED_COPY: Partial<Record<PermissionState, BlockedCopy>> = {
+  denied: {
+    title: "Notificações bloqueadas",
+    body: "Altere as permissões do site nas configurações do navegador para ativá-las.",
+  },
+  unsupported: {
+    title: "Notificações indisponíveis",
+    body: "Você não pode ativar notificações neste ambiente.",
+  },
+};
+
 type NotificationPermissionPanelProps = {
   state: PermissionState;
   isBlocked: boolean;
   onRequest: () => void;
 };
+
+/** The blocked notice only exists while the browser cannot recover on its own. */
+function blockedCopy(
+  state: PermissionState,
+  isBlocked: boolean,
+): BlockedCopy | null {
+  if (!isBlocked) return null;
+  return BLOCKED_COPY[state === "denied" ? "denied" : "unsupported"] ?? null;
+}
 
 /**
  * Explains the current permission state and, when the browser still allows a
@@ -29,6 +59,8 @@ export function NotificationPermissionPanel({
   isBlocked,
   onRequest,
 }: NotificationPermissionPanelProps) {
+  const blocked = blockedCopy(state, isBlocked);
+
   return (
     <>
       <div className="px-5 py-4">
@@ -52,7 +84,7 @@ export function NotificationPermissionPanel({
           <p role="status" className="text-sm text-muted-foreground">
             Aguardando permissão do navegador…
           </p>
-        ) : isBlocked ? (
+        ) : blocked ? (
           <div className="flex items-start gap-2">
             <BellOff
               className="mt-0.5 size-4 shrink-0 text-destructive"
@@ -60,14 +92,10 @@ export function NotificationPermissionPanel({
             />
             <div>
               <p className="text-sm font-medium text-foreground">
-                {state === "denied"
-                  ? "Notificações bloqueadas"
-                  : "Notificações indisponíveis"}
+                {blocked.title}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {state === "denied"
-                  ? "Altere as permissões do site nas configurações do navegador para ativá-las."
-                  : "Você não pode ativar notificações neste ambiente."}
+                {blocked.body}
               </p>
             </div>
           </div>

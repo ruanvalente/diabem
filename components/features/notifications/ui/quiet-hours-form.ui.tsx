@@ -6,18 +6,16 @@ type QuietHoursFormProps = {
   value: NotificationQuietHours;
   onChange: (value: NotificationQuietHours) => void;
   disabled?: boolean;
-  idPrefix?: string;
 };
+
+const START_ID = "quiet-hours-start";
+const END_ID = "quiet-hours-end";
 
 export function QuietHoursForm({
   value,
   onChange,
   disabled = false,
-  idPrefix = "quiet-hours",
 }: QuietHoursFormProps) {
-  const startId = `${idPrefix}-start`;
-  const endId = `${idPrefix}-end`;
-
   return (
     <fieldset className="space-y-3" disabled={disabled}>
       <legend className="text-sm font-medium text-foreground">Período silencioso</legend>
@@ -34,9 +32,9 @@ export function QuietHoursForm({
       </label>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label htmlFor={startId}>Início</Label>
+          <Label htmlFor={START_ID}>Início</Label>
           <Input
-            id={startId}
+            id={START_ID}
             type="time"
             value={value.start}
             disabled={!value.enabled}
@@ -44,9 +42,9 @@ export function QuietHoursForm({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={endId}>Fim</Label>
+          <Label htmlFor={END_ID}>Fim</Label>
           <Input
-            id={endId}
+            id={END_ID}
             type="time"
             value={value.end}
             disabled={!value.enabled}
