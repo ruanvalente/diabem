@@ -41,8 +41,7 @@ export function NotificationSettingsCard() {
   const { isPending, submit, toggle, remove } =
     useNotificationScheduleActions(schedulesApi);
 
-  const isBlocked = state === "denied" || state === "unsupported";
-const canManage = supported && state === "granted";
+  const canManage = supported && state === "granted";
 
   const openCreateDialog = () => {
     setEditing(null);
@@ -84,7 +83,6 @@ const canManage = supported && state === "granted";
       <CardContent className="p-0">
         <NotificationPermissionPanel
           state={state}
-          isBlocked={isBlocked}
           onRequest={() => void request()}
         />
 
