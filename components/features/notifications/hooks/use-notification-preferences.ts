@@ -8,6 +8,7 @@ import type {
   NotificationPreferences,
   NotificationPreferencesInput,
 } from "@/lib/notifications/types";
+import { messageFromCause } from "../utils/notification-error-message";
 
 type NotificationPreferencesState = {
   userId: string | null;
@@ -61,8 +62,7 @@ export function useNotificationPreferences(userId: string | null) {
       } catch (cause) {
         return {
           ok: false,
-          error:
-            cause instanceof Error ? cause.message : "Não foi possível salvar as preferências.",
+          error: messageFromCause(cause, "Não foi possível salvar as preferências."),
         };
       }
     },

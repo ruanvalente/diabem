@@ -12,19 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { validateNotificationScheduleInput } from "@/lib/notifications/notification-schedule.validation";
-import {
-  NOTIFICATION_PERIOD_DEFAULT_TIMES,
-  NOTIFICATION_WEEKDAY_PRESETS,
-  type NotificationActionResult,
-  type NotificationSchedule,
-  type NotificationScheduleInput,
-  type NotificationWeekdayPreset,
+import type {
+  NotificationActionResult,
+  NotificationSchedule,
+  NotificationScheduleInput,
 } from "@/lib/notifications/types";
-import {
-  NotificationScheduleForm,
-  type NotificationScheduleFormValue,
-} from "../ui/notification-schedule-form.ui";
-import { resolveWeekdayPreset } from "../utils/notification-weekday-preset";
+import { useNotificationScheduleForm } from "../hooks/use-notification-schedule-form";
+import { NotificationScheduleForm } from "../ui/notification-schedule-form.ui";
 
 type NotificationScheduleDialogProps = {
   open: boolean;
@@ -35,30 +29,14 @@ type NotificationScheduleDialogProps = {
   ) => Promise<NotificationActionResult<NotificationSchedule>>;
 };
 
-function initialValue(schedule?: NotificationSchedule | null): NotificationScheduleFormValue {
-  return {
-    label: schedule?.label ?? "",
-    period: schedule?.period ?? "morning",
-    time: schedule?.time ?? NOTIFICATION_PERIOD_DEFAULT_TIMES.morning,
-    enabled: schedule?.enabled ?? true,
-    daysOfWeek: schedule?.daysOfWeek ?? [...NOTIFICATION_WEEKDAY_PRESETS.everyDay],
-    reminderTypes: schedule?.reminderTypes ?? ["glucose"],
-  };
-}
-
 export function NotificationScheduleDialog({
   open,
   onOpenChange,
   schedule = null,
   onSubmit,
 }: NotificationScheduleDialogProps) {
-  const isEditing = Boolean(schedule);
-  const [value, setValue] = useState<NotificationScheduleFormValue>(() =>
-    initialValue(schedule),
-  );
-  const [weekdayPreset, setWeekdayPreset] = useState<NotificationWeekdayPreset>(() =>
-    resolveWeekdayPreset(initialValue(schedule).daysOfWeek),
-  );
+  const { isEditing, value, weekdayPreset, change, changeWeekdayPreset } =
+    useNotificationScheduleForm(schedule);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -66,26 +44,6 @@ export function NotificationScheduleDialog({
     () => schedule?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     [schedule],
   );
-
-  const handlePresetChange = (preset: NotificationWeekdayPreset) => {
-    setWeekdayPreset(preset);
-    if (preset === "custom") return;
-    setValue((current) => ({
-      ...current,
-      daysOfWeek: [...NOTIFICATION_WEEKDAY_PRESETS[preset]],
-    }));
-  };
-
-  const handleChange = (next: NotificationScheduleFormValue) => {
-    setValue((current) => ({
-      ...next,
-      time:
-        !isEditing && next.period !== current.period
-          ? NOTIFICATION_PERIOD_DEFAULT_TIMES[next.period]
-          : next.time,
-    }));
-    setWeekdayPreset(resolveWeekdayPreset(next.daysOfWeek));
-  };
 
   const handleSubmit = async () => {
     const validation = validateNotificationScheduleInput({
@@ -125,9 +83,9 @@ export function NotificationScheduleDialog({
 
         <NotificationScheduleForm
           value={value}
-          onChange={handleChange}
+          onChange={change}
           weekdayPreset={weekdayPreset}
-          onWeekdayPresetChange={handlePresetChange}
+          onWeekdayPresetChange={changeWeekdayPreset}
         />
 
         {error ? (
