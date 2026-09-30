@@ -35,22 +35,70 @@ type NotificationScheduleFormProps = {
   onChange: (value: NotificationScheduleFormValue) => void;
   weekdayPreset: NotificationWeekdayPreset;
   onWeekdayPresetChange: (preset: NotificationWeekdayPreset) => void;
-  idPrefix?: string;
 };
 
-const PERIOD_ITEMS = NOTIFICATION_PERIODS.map((period) => ({
+type SelectOption = { value: string; label: string };
+
+const PERIOD_ITEMS: SelectOption[] = NOTIFICATION_PERIODS.map((period) => ({
   value: period,
   label: NOTIFICATION_PERIOD_LABELS[period],
 }));
 
-const WEEKDAY_PRESETS = Object.keys(
-  NOTIFICATION_WEEKDAY_PRESET_LABELS,
-) as NotificationWeekdayPreset[];
-
-const WEEKDAY_PRESET_ITEMS = WEEKDAY_PRESETS.map((preset) => ({
+const WEEKDAY_PRESET_ITEMS: SelectOption[] = (
+  Object.keys(NOTIFICATION_WEEKDAY_PRESET_LABELS) as NotificationWeekdayPreset[]
+).map((preset) => ({
   value: preset,
   label: NOTIFICATION_WEEKDAY_PRESET_LABELS[preset],
 }));
+
+const LABEL_ID = "notification-schedule-label";
+const PERIOD_ID = "notification-schedule-period";
+const TIME_ID = "notification-schedule-time";
+const REPEAT_ID = "notification-schedule-repeat";
+
+/**
+ * Labelled dropdown. The options are declared once: `items` gives the control
+ * its accessible names and the same list renders the popup.
+ */
+function SelectField({
+  id,
+  label,
+  placeholder,
+  value,
+  items,
+  onValueChange,
+}: {
+  id: string;
+  label: string;
+  placeholder: string;
+  value: string;
+  items: SelectOption[];
+  onValueChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          if (next) onValueChange(next);
+        }}
+        items={items}
+      >
+        <SelectTrigger id={id} size="default" className="h-10 w-full">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 function toggleValue<T extends string>(values: readonly T[], value: T): T[] {
   return values.includes(value)
@@ -63,86 +111,56 @@ export function NotificationScheduleForm({
   onChange,
   weekdayPreset,
   onWeekdayPresetChange,
-  idPrefix = "notification-schedule",
 }: NotificationScheduleFormProps) {
-  const periodId = `${idPrefix}-period`;
-  const timeId = `${idPrefix}-time`;
-  const labelId = `${idPrefix}-label`;
-  const repeatId = `${idPrefix}-repeat`;
-  const daysId = `${idPrefix}-days`;
-  const typesId = `${idPrefix}-types`;
-
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor={labelId}>Nome do lembrete (opcional)</Label>
+        <Label htmlFor={LABEL_ID}>Nome do lembrete (opcional)</Label>
         <Input
-          id={labelId}
+          id={LABEL_ID}
           value={value.label}
           maxLength={40}
           placeholder="Ex.: Medição da manhã"
-          onChange={(event) => onChange({ ...value, label: event.target.value })}
+          onChange={(event) =>
+            onChange({ ...value, label: event.target.value })
+          }
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor={periodId}>Período</Label>
-        <Select
-          value={value.period}
-          onValueChange={(next) => {
-            if (next) onChange({ ...value, period: next as NotificationPeriod });
-          }}
-          items={PERIOD_ITEMS}
-        >
-          <SelectTrigger id={periodId} size="default" className="h-10 w-full">
-            <SelectValue placeholder="Selecione um período" />
-          </SelectTrigger>
-          <SelectContent>
-            {NOTIFICATION_PERIODS.map((period) => (
-              <SelectItem key={period} value={period}>
-                {NOTIFICATION_PERIOD_LABELS[period]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <SelectField
+        id={PERIOD_ID}
+        label="Período"
+        placeholder="Selecione um período"
+        value={value.period}
+        items={PERIOD_ITEMS}
+        onValueChange={(period) =>
+          onChange({ ...value, period: period as NotificationPeriod })
+        }
+      />
 
       <div className="space-y-1.5">
-        <Label htmlFor={timeId}>Horário</Label>
+        <Label htmlFor={TIME_ID}>Horário</Label>
         <Input
-          id={timeId}
+          id={TIME_ID}
           type="time"
           value={value.time}
           onChange={(event) => onChange({ ...value, time: event.target.value })}
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor={repeatId}>Repetir</Label>
-        <Select
-          value={weekdayPreset}
-          onValueChange={(next) => {
-            if (next) onWeekdayPresetChange(next as NotificationWeekdayPreset);
-          }}
-          items={WEEKDAY_PRESET_ITEMS}
-        >
-          <SelectTrigger id={repeatId} size="default" className="h-10 w-full">
-            <SelectValue placeholder="Selecione uma repetição" />
-          </SelectTrigger>
-          <SelectContent>
-            {WEEKDAY_PRESETS.map((preset) => (
-              <SelectItem key={preset} value={preset}>
-                {NOTIFICATION_WEEKDAY_PRESET_LABELS[preset]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <SelectField
+        id={REPEAT_ID}
+        label="Repetir"
+        placeholder="Selecione uma repetição"
+        value={weekdayPreset}
+        items={WEEKDAY_PRESET_ITEMS}
+        onValueChange={(preset) =>
+          onWeekdayPresetChange(preset as NotificationWeekdayPreset)
+        }
+      />
 
       <fieldset className="space-y-2">
-        <legend id={daysId} className="text-sm font-medium text-foreground">
-          Dias da semana
-        </legend>
+        <legend className="text-sm font-medium text-foreground">Dias da semana</legend>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {NOTIFICATION_WEEKDAY_KEYS.map((day) => (
             <label
@@ -167,9 +185,7 @@ export function NotificationScheduleForm({
       </fieldset>
 
       <fieldset className="space-y-2">
-        <legend id={typesId} className="text-sm font-medium text-foreground">
-          Lembrar de
-        </legend>
+        <legend className="text-sm font-medium text-foreground">Lembrar de</legend>
         <div className="space-y-1">
           {NOTIFICATION_REMINDER_TYPES.map((type) => (
             <label
@@ -197,10 +213,14 @@ export function NotificationScheduleForm({
         <input
           type="checkbox"
           checked={value.enabled}
-          onChange={(event) => onChange({ ...value, enabled: event.target.checked })}
+          onChange={(event) =>
+            onChange({ ...value, enabled: event.target.checked })
+          }
           className="size-4 accent-primary"
         />
-        <span className="font-medium text-foreground">Ativar este lembrete</span>
+        <span className="font-medium text-foreground">
+          Ativar este lembrete
+        </span>
       </label>
     </div>
   );

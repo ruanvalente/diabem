@@ -3,19 +3,21 @@ import { Badge } from "@/components/ui/badge";
 import {
   NOTIFICATION_PERIOD_LABELS,
   NOTIFICATION_REMINDER_TYPE_LABELS,
+  NOTIFICATION_WEEKDAY_PRESET_LABELS,
   NOTIFICATION_WEEKDAY_SHORT_LABELS,
   type NotificationSchedule,
 } from "@/lib/notifications/types";
 import { Clock, Pencil, Trash2 } from "lucide-react";
+import { resolveWeekdayPreset } from "../utils/notification-weekday-preset";
 
+/**
+ * Names the recurrence from the same vocabulary the form offers, so the list and
+ * the editor never describe the same selection differently. A selection that
+ * matches no preset lists its days.
+ */
 function summarizeDays(days: NotificationSchedule["daysOfWeek"]): string {
-  if (days.length === 7) return "Todos os dias";
-  if (days.length === 5 && !days.includes("saturday") && !days.includes("sunday")) {
-    return "Dias úteis";
-  }
-  if (days.length === 2 && days.includes("saturday") && days.includes("sunday")) {
-    return "Fim de semana";
-  }
+  const preset = resolveWeekdayPreset(days);
+  if (preset !== "custom") return NOTIFICATION_WEEKDAY_PRESET_LABELS[preset];
   return days.map((day) => NOTIFICATION_WEEKDAY_SHORT_LABELS[day]).join(", ");
 }
 
