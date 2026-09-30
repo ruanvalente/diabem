@@ -8,6 +8,7 @@ import type {
   NotificationSchedule,
   NotificationScheduleInput,
 } from "@/lib/notifications/types";
+import { messageFromCause } from "../utils/notification-error-message";
 
 type NotificationSchedulesState = {
   userId: string | null;
@@ -46,15 +47,10 @@ function applySchedules(
   };
 }
 
-function messageFromCause(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback;
-}
-
 type ScheduleChange = (
   schedules: NotificationSchedule[],
 ) => NotificationSchedule[];
 
-/** Commits a list change on behalf of the owner, discarding records of another session. */
 type ApplyScheduleChange = (userId: string, change: ScheduleChange) => void;
 
 type ScheduleMutation<TRecord> = {
@@ -119,8 +115,6 @@ export function useNotificationSchedules(userId: string | null) {
   }, [userId]);
 
   useEffect(() => {
-    // The state is written after the read resolves, not in the effect body; the
-    // suppression matches the other read-on-mount hooks of the application.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount
     void refresh();
   }, [refresh]);
@@ -182,8 +176,7 @@ export function useNotificationSchedules(userId: string | null) {
         commit: (record) => (schedules) =>
           schedules.map((item) => (item.id === id ? record : item)),
         reschedule: (record) => getNotificationScheduler().schedule(record),
-        // Toggling never fails validation, so the failure is always about storage
-        // and its technical message must not reach the user.
+        // Toggling never fails validation, so the failure is always about storage.
         describeFailure: () => "Não foi possível alterar o lembrete.",
       });
     },

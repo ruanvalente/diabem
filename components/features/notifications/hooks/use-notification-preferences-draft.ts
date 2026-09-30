@@ -43,8 +43,7 @@ export function useNotificationPreferencesDraft(
   const [syncedPreferences, setSyncedPreferences] =
     useState<NotificationPreferences | null>(null);
 
-  // Reset the draft during render whenever a different preferences record
-  // arrives, instead of mirroring it in an effect that would render once with
+  // Reset during render rather than in an effect, which would render once with
   // the previous draft.
   if (preferences && preferences !== syncedPreferences) {
     setSyncedPreferences(preferences);
