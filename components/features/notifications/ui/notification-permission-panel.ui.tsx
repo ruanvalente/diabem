@@ -36,18 +36,8 @@ const BLOCKED_COPY: Partial<Record<PermissionState, BlockedCopy>> = {
 
 type NotificationPermissionPanelProps = {
   state: PermissionState;
-  isBlocked: boolean;
   onRequest: () => void;
 };
-
-/** The blocked notice only exists while the browser cannot recover on its own. */
-function blockedCopy(
-  state: PermissionState,
-  isBlocked: boolean,
-): BlockedCopy | null {
-  if (!isBlocked) return null;
-  return BLOCKED_COPY[state === "denied" ? "denied" : "unsupported"] ?? null;
-}
 
 /**
  * Explains the current permission state and, when the browser still allows a
@@ -56,10 +46,9 @@ function blockedCopy(
  */
 export function NotificationPermissionPanel({
   state,
-  isBlocked,
   onRequest,
 }: NotificationPermissionPanelProps) {
-  const blocked = blockedCopy(state, isBlocked);
+  const blocked = BLOCKED_COPY[state] ?? null;
 
   return (
     <>
